@@ -18,6 +18,11 @@ const complaintSchema = new mongoose.Schema({
       'Noise', 
       'Vandalism', 
       'Other',
+      // Emergency categories
+      'Gas Leakage',
+      'Building Collapse',
+      'Electrocution',
+      'Critical Fire',
       // ML Government categories
       'Roads',
       'Water',
@@ -68,6 +73,29 @@ const complaintSchema = new mongoose.Schema({
   image: {
     type: String,
     default: null
+  },
+  landmark: {
+    type: String,
+    required: [true, 'Please add a landmark/street address']
+  },
+  occurrenceDate: {
+    type: Date,
+    required: [true, 'Please add the date/time the issue was noticed']
+  },
+  urgency: {
+    type: String,
+    enum: ['Low', 'Medium', 'High'],
+    required: [true, 'Please select urgency level']
+  },
+  impactScale: {
+    type: String,
+    enum: ['Individual', 'Few neighbors', 'Whole street/community'],
+    required: [true, 'Please select the impact scale']
+  },
+  contactPreference: {
+    type: String,
+    enum: ['Email', 'Phone', 'SMS'],
+    required: [true, 'Please select contact preference']
   },
   user: {
     type: mongoose.Schema.ObjectId,

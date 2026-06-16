@@ -1,5 +1,5 @@
 const express = require('express');
-const { getComplaints, getStats, createComplaint, getMyComplaints, updateComplaintStatus, getHotspots } = require('../controllers/complaintController');
+const { getComplaints, getStats, createComplaint, getMyComplaints, updateComplaintStatus, getHotspots, getNearbyComplaints } = require('../controllers/complaintController');
 const auth = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
@@ -13,6 +13,7 @@ router.get('/hotspots', getHotspots);
 // Protected routes (must be logged in to submit)
 router.use(auth);
 router.get('/me', getMyComplaints);
+router.get('/nearby', getNearbyComplaints);
 router.post('/', upload.single('image'), createComplaint);
 router.patch('/:id/status', updateComplaintStatus);
 

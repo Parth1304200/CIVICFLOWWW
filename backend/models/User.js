@@ -26,14 +26,46 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['admin', 'manager', 'sales', 'citizen'],
-        message: 'Role must be admin, manager, sales, or citizen',
+        values: ['admin', 'manager', 'sales', 'citizen', 'cm'],
+        message: 'Role must be admin, manager, sales, citizen, or cm',
       },
       default: 'citizen',
     },
     isActive: {
       type: Boolean,
       default: true,
+    },
+    address: {
+      type: String,
+      default: '',
+    },
+    gender: {
+      type: String,
+      default: '',
+    },
+    phone: {
+      type: String,
+      default: '',
+    },
+    isProfileSetup: {
+      type: Boolean,
+      default: false,
+    },
+    surname: {
+      type: String,
+      default: '',
+    },
+    dob: {
+      type: String,
+      default: '',
+    },
+    photo: {
+      type: String,
+      default: '',
+    },
+    nagrikId: {
+      type: String,
+      default: '',
     },
   },
   {

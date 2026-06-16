@@ -3,35 +3,107 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
-import { Shield, User } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, Circle, ShieldCheck } from 'lucide-react';
+
+// Password strength checker
+function getStrength(password) {
+  const checks = {
+    length: password.length >= 8,
+    uppercase: /[A-Z]/.test(password),
+    lowercase: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password),
+  };
+  const passed = Object.values(checks).filter(Boolean).length;
+  return { checks, passed, score: passed };
+}
+
+const STRENGTH_LABELS = ['', 'Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong'];
+const STRENGTH_COLORS = ['', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-blue-500', 'bg-emerald-500'];
+const STRENGTH_TEXT = ['', 'text-red-600', 'text-orange-600', 'text-yellow-600', 'text-blue-600', 'text-emerald-600'];
+
+function PasswordStrengthMeter({ password }) {
+  if (!password) return null;
+  const { checks, score } = getStrength(password);
+
+  const rules = [
+    { key: 'length',    label: 'At least 8 characters' },
+    { key: 'uppercase', label: 'One uppercase letter (A–Z)' },
+    { key: 'lowercase', label: 'One lowercase letter (a–z)' },
+    { key: 'number',    label: 'One number (0–9)' },
+    { key: 'special',   label: 'One special character (!@#$…)' },
+  ];
+
+  return (
+    <div className="mt-2.5 space-y-2">
+      {/* Bar */}
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div
+            key={i}
+            className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+              i <= score ? STRENGTH_COLORS[score] : 'bg-slate-200'
+            }`}
+          />
+        ))}
+      </div>
+      <p className={`text-xs font-bold ${STRENGTH_TEXT[score]}`}>
+        {STRENGTH_LABELS[score]}
+      </p>
+      {/* Checklist */}
+      <ul className="space-y-1">
+        {rules.map(({ key, label }) => (
+          <li key={key} className="flex items-center gap-1.5 text-xs">
+            {checks[key] ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" />
+            ) : (
+              <Circle className="h-3.5 w-3.5 text-slate-300 flex-shrink-0" />
+            )}
+            <span className={checks[key] ? 'text-slate-500 line-through' : 'text-slate-500'}>
+              {label}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 export function Register() {
   const navigate = useNavigate();
   const { signup, googleSignIn } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [roleTab, setRoleTab] = useState('citizen');
+  const [roleTab] = useState('citizen');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
+
+    const name = e.target.name.value.trim();
+    const email = e.target.email.value.trim();
+
+    // Client-side strength gate
+    const { score } = getStrength(password);
+    if (score < 3) {
+      setError('Password is too weak. Please meet at least 3 of the 5 security requirements.');
+      return;
+    }
+
     setLoading(true);
-    const name = e.target.name.value;
-    const email = e.target.email.value;
-    const password = e.target.password.value;
-    
     try {
-      await signup(name, email, password);
-      
       localStorage.setItem('role', roleTab);
-      navigate(roleTab === 'admin' ? '/admin' : '/dashboard');
+      await signup(name, email, password);
+      navigate('/dashboard');
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
-        setError('This email is already registered.');
+        setError('This email is already registered. Please sign in instead.');
       } else if (err.code === 'auth/weak-password') {
         setError('Password must be at least 6 characters.');
       } else {
-        setError(err.message || 'Registration failed');
+        setError(err.message || 'Registration failed. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -40,27 +112,39 @@ export function Register() {
 
   const handleGoogle = async () => {
     try {
-      await googleSignIn();
-      
       localStorage.setItem('role', roleTab);
-      navigate(roleTab === 'admin' ? '/admin' : '/dashboard');
+      await googleSignIn();
+      navigate('/dashboard');
     } catch (err) {
       if (err.code === 'auth/unauthorized-domain') {
-        setError('Google Sign-In blocked: Domain not authorized. Add your domain in Firebase Console -> Authentication -> Settings -> Authorized Domains.');
+        setError('Google Sign-In blocked: Domain not authorized in Firebase Console.');
       } else if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-in popup closed before completing.');
+        setError('Sign-in popup was closed. Please try again.');
       } else {
-        setError(err.message || 'Google sign-up failed');
+        setError(err.message || 'Google sign-up failed.');
       }
     }
   };
 
+  const { score } = getStrength(password);
+  const isPasswordStrong = score >= 3;
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center text-2xl font-bold text-slate-800">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white mr-2">C</div>
-          CivicFlow
+        <div className="flex justify-center mb-6">
+          <img 
+            src="/logo-clean.png" 
+            alt="Civic Flow Logo" 
+            className="h-16 object-contain"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <div className="hidden h-12 items-center justify-center text-2xl font-bold text-slate-800">
+            CIVIC FLOW
+          </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
           Create your account
@@ -74,29 +158,16 @@ export function Register() {
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm border border-slate-200 sm:rounded-xl sm:px-10">
-          
-          <div className="flex bg-slate-100 p-1 rounded-lg mb-6">
-            <button
-              onClick={() => setRoleTab('citizen')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${roleTab === 'citizen' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <User className="h-4 w-4" /> Citizen
-            </button>
-            <button
-              onClick={() => setRoleTab('admin')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${roleTab === 'admin' ? 'bg-amber-100 shadow-sm text-amber-800' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <Shield className="h-4 w-4" /> Admin
-            </button>
-          </div>
+        <div className="bg-white py-8 px-4 shadow-sm border border-slate-200 sm:rounded-2xl sm:px-10">
 
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+              <span className="text-red-400 mt-0.5">⚠</span>
               {error}
             </div>
           )}
 
+          {/* Google Sign-up */}
           <div className="mb-6">
             <Button variant="secondary" onClick={handleGoogle} className="w-full flex justify-center gap-3 items-center">
               <svg className="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24">
@@ -114,38 +185,76 @@ export function Register() {
             </div>
           </div>
 
-          <form className="space-y-6" onSubmit={handleRegister}>
+          <form className="space-y-5" onSubmit={handleRegister}>
+            {/* Full Name */}
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-slate-700">
-                Full Name
-              </label>
+              <label htmlFor="name" className="block text-sm font-medium text-slate-700">Full Name</label>
               <div className="mt-1">
-                <Input id="name" name="name" type="text" autoComplete="name" required />
+                <Input id="name" name="name" type="text" autoComplete="name" placeholder="Your full name" required />
               </div>
             </div>
 
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700">
-                Email address
-              </label>
+              <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email address</label>
               <div className="mt-1">
-                <Input id="email" name="email" type="email" autoComplete="email" required />
+                <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
               </div>
             </div>
 
+            {/* Password with strength meter */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-700">
                 Password
               </label>
-              <div className="mt-1">
-                <Input id="password" name="password" type="password" autoComplete="new-password" required />
+              <div className="mt-1 relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Create a strong password"
+                  required
+                  className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
+
+              {/* Live strength meter */}
+              <PasswordStrengthMeter password={password} />
+
+              {/* Security banner when strong */}
+              {isPasswordStrong && (
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                  <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
+                  Your password meets the security requirements
+                </div>
+              )}
             </div>
 
-            <div>
-              <Button type="submit" className="w-full" isLoading={loading}>
-                Register
+            <div className="pt-1">
+              <Button
+                type="submit"
+                className="w-full"
+                isLoading={loading}
+                disabled={loading || !isPasswordStrong}
+              >
+                Create Account
               </Button>
+              {!isPasswordStrong && password.length > 0 && (
+                <p className="text-xs text-center text-slate-400 mt-2">
+                  Strengthen your password to enable account creation
+                </p>
+              )}
             </div>
           </form>
         </div>

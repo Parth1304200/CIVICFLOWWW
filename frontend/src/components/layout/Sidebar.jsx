@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, PlusCircle, LogOut, Radio } from 'lucide-react';
+import { LayoutDashboard, FileText, PlusCircle, LogOut, Radio, User, HelpCircle } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { LogoutModal } from '../ui/LogoutModal';
 import { useAuth } from '../../context/AuthContext';
@@ -11,13 +11,16 @@ export function Sidebar({ isOpen, setIsOpen }) {
   const role = localStorage.getItem('role');
   
   const navItems = role === 'admin' ? [
-    { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-    { name: 'Hotspot Monitor', path: '/hotspot-dashboard', icon: Radio },
-    { name: 'Complaints', path: '/complaints', icon: FileText }
+    { name: 'Admin Dashboard', path: '/admin', icon: LayoutDashboard },
+    { name: 'Hotspot Monitor', path: '/hotspot-dashboard', icon: Radio }
+  ] : role === 'cm' ? [
+    { name: 'CM Dashboard', path: '/cm-dashboard', icon: LayoutDashboard }
   ] : [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
     { name: 'My Complaints', path: '/complaints', icon: FileText },
     { name: 'Submit Complaint', path: '/submit', icon: PlusCircle },
+    { name: 'My Profile', path: '/profile', icon: User },
+    { name: 'Help & Support', path: '/help', icon: HelpCircle },
   ];
 
   return (
@@ -42,7 +45,16 @@ export function Sidebar({ isOpen, setIsOpen }) {
         {/* Logo area */}
         <div className="flex h-16 items-center px-6 border-b border-slate-100">
           <div className="flex items-center gap-2 font-bold text-xl text-slate-800">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
+            <img 
+              src="/logo-clean.png" 
+              alt="Civic Flow Logo" 
+              className="h-8 object-contain"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+            <div className="hidden h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">
               C
             </div>
             CivicFlow
@@ -72,12 +84,20 @@ export function Sidebar({ isOpen, setIsOpen }) {
 
         <div className="border-t border-slate-100 p-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-medium text-slate-600 uppercase">
-                {user?.name ? user.name.charAt(0) : (user?.displayName ? user.displayName.charAt(0) : 'U')}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-slate-900 truncate w-32">{user?.name || user?.displayName || 'Citizen'}</span>
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              {user?.photo ? (
+                <img 
+                  src={user.photo.startsWith('http') ? user.photo : `http://localhost:5001${user.photo}`} 
+                  alt="Profile" 
+                  className="h-9 w-9 shrink-0 rounded-full object-cover border border-slate-200"
+                />
+              ) : (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-medium text-slate-600 uppercase">
+                  {user?.name ? user.name.charAt(0) : (user?.displayName ? user.displayName.charAt(0) : 'U')}
+                </div>
+              )}
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-slate-900 truncate w-28">{user?.name || user?.displayName || 'Citizen'}</span>
                 <span className="text-xs text-slate-500 capitalize">{user?.role || 'Citizen'}</span>
               </div>
             </div>

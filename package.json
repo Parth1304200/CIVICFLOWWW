@@ -5,14 +5,16 @@
   "main": "backend/server.js",
   "workspaces": [
     "backend",
-    "frontend"
+    "frontend",
+    "grievance-dashboard"
   ],
   "scripts": {
-    "install:all": "npm install && npm install --workspace=@crm/backend && npm install --workspace=@crm/frontend",
+    "install:all": "npm install && npm install --workspace=@crm/backend && npm install --workspace=@crm/frontend && npm install --workspace=grievance-dashboard",
     "start": "node backend/server.js",
     "server": "npm run dev --workspace=@crm/backend",
     "client": "npm run dev --workspace=@crm/frontend",
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dashboard": "npm run dev --workspace=grievance-dashboard",
+    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run dashboard\"",
     "build": "npm run build --workspace=@crm/frontend",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

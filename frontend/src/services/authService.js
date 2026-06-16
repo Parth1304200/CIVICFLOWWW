@@ -1,71 +1,99 @@
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signInWithPopup, signOut, GoogleAuthProvider } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "../firebase/config";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  GoogleAuthProvider,
+  updateProfile,
+} from 'firebase/auth';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase/config';
 
 const provider = new GoogleAuthProvider();
 
+/**
+ * Sign up with email/password.
+ * Returns a UserCredential-shaped object: { user }
+ */
 export const signup = async (name, email, password) => {
-  const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-  const user = userCredential.user;
-  
-  // Run Firestore sync strictly in background to prevent silent hangs
-  const userDocRef = doc(db, "users", user.uid);
-  setDoc(userDocRef, {
-    uid: user.uid,
-    name: name,
-    email: email,
-    role: "citizen",
-    createdAt: new Date().toISOString()
-  }).catch(error => console.warn("Background Firestore sync skipped:", error));
-  
-  return { ...user, displayName: name };
-};
+  const credential = await createUserWithEmailAndPassword(auth, email, password);
 
-export const login = async (email, password) => {
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  return userCredential.user;
-};
-
-export const logout = async () => {
-  return signOut(auth);
-};
-
-export const googleSignIn = async () => {
-  const result = await signInWithPopup(auth, provider);
-  const user = result.user;
-  
-  // Background check unconfigured DB
-  const userDocRef = doc(db, "users", user.uid);
-  getDoc(userDocRef).then(async (userDoc) => {
-    if (!userDoc.exists()) {
-      await setDoc(userDocRef, {
-        uid: user.uid,
-        name: user.displayName || "Google User",
-        email: user.email,
-        role: "citizen",
-        createdAt: new Date().toISOString()
-      });
-    }
-  }).catch(error => console.warn("Background Firestore sync skipped:", error));
-
-  return user;
-};
-
-export const getUserData = async (uid) => {
-  // Use Promise.race to forcefully terminate Firebase's infinite retry loops!
+  // Persist the display name on the Firebase Auth profile
   try {
-    const userDocRef = doc(db, "users", uid);
-    const userDoc = await Promise.race([
+    await updateProfile(credential.user, { displayName: name });
+  } catch (e) {
+    console.warn('updateProfile skipped:', e.message);
+  }
+
+  // Background Firestore sync — non-blocking
+  const userDocRef = doc(db, 'users', credential.user.uid);
+  setDoc(userDocRef, {
+    uid: credential.user.uid,
+    name,
+    email,
+    role: 'citizen',
+    createdAt: new Date().toISOString(),
+  }).catch((err) => console.warn('Background Firestore sync skipped:', err));
+
+  // Return the full UserCredential so callers can do cred.user
+  return credential;
+};
+
+/**
+ * Sign in with email/password.
+ * Returns a UserCredential: { user }
+ */
+export const login = async (email, password) => {
+  const credential = await signInWithEmailAndPassword(auth, email, password);
+  return credential; // { user, ... }
+};
+
+/**
+ * Sign out.
+ */
+export const logout = async () => signOut(auth);
+
+/**
+ * Google Sign-In popup.
+ * Returns a UserCredential: { user }
+ */
+export const googleSignIn = async () => {
+  const credential = await signInWithPopup(auth, provider);
+
+  // Background Firestore sync — non-blocking
+  const userDocRef = doc(db, 'users', credential.user.uid);
+  getDoc(userDocRef)
+    .then(async (snap) => {
+      if (!snap.exists()) {
+        await setDoc(userDocRef, {
+          uid: credential.user.uid,
+          name: credential.user.displayName || 'Google User',
+          email: credential.user.email,
+          role: 'citizen',
+          createdAt: new Date().toISOString(),
+        });
+      }
+    })
+    .catch((err) => console.warn('Background Firestore sync skipped:', err));
+
+  return credential; // { user, ... }
+};
+
+/**
+ * Fetch Firestore user document (with 3 s timeout guard).
+ */
+export const getUserData = async (uid) => {
+  try {
+    const userDocRef = doc(db, 'users', uid);
+    const snap = await Promise.race([
       getDoc(userDocRef),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout Firebase Polling')), 3000))
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Firestore timeout')), 3000)
+      ),
     ]);
-    
-    if (userDoc && userDoc.exists()) {
-      return userDoc.data();
-    }
-    return null;
-  } catch (error) {
-    console.warn("Firestore background hook correctly aborted due to:", error.message);
+    return snap?.exists() ? snap.data() : null;
+  } catch (err) {
+    console.warn('getUserData aborted:', err.message);
     return null;
   }
 };

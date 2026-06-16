@@ -68,4 +68,57 @@ const login = async (req, res, next) => {
   }
 };
 
-module.exports = { register, login, firebaseSync };
+/**
+ * POST /api/auth/setup-profile
+ */
+const setupProfile = async (req, res, next) => {
+  try {
+    const { name, surname, address, gender, phone, email, dob } = req.body;
+    const user = await User.findOne({ _id: req.user._id });
+    
+    if (!user) {
+      return res.status(404).json({ status: 'fail', message: 'User not found' });
+    }
+
+    if (name) user.name = name;
+    if (surname !== undefined) user.surname = surname;
+    if (address) user.address = address;
+    if (gender) user.gender = gender;
+    if (phone) user.phone = phone;
+    if (email) user.email = email;
+    if (dob) user.dob = dob;
+
+    // Save profile picture file path if uploaded
+    if (req.file) {
+      user.photo = `/uploads/${req.file.filename}`;
+    }
+
+    // Generate unique Nagrik ID if not already generated
+    if (!user.nagrikId) {
+      let isUnique = false;
+      let code = '';
+      while (!isUnique) {
+        const randomNum = Math.floor(100000 + Math.random() * 900000);
+        code = `DL-NG-${randomNum}`;
+        const existing = await User.findOne({ nagrikId: code });
+        if (!existing) {
+          isUnique = true;
+        }
+      }
+      user.nagrikId = code;
+    }
+
+    user.isProfileSetup = true;
+
+    await user.save();
+
+    res.status(200).json({
+      status: 'success',
+      data: { user },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { register, login, firebaseSync, setupProfile };

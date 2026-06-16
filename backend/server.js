@@ -31,11 +31,35 @@ const startServer = async () => {
     },
   });
 
+  const Message = require('./models/Message');
+
   // Make io accessible from Express routes via req.app.get('io')
   app.set('io', io);
 
   io.on('connection', (socket) => {
     console.log(`🔌 Client connected: ${socket.id}`);
+
+    // Admin/CM Chat History
+    socket.on('GET_MESSAGES', async (callback) => {
+      try {
+        const messages = await Message.find().sort({ createdAt: 1 }).limit(100);
+        if (callback) callback(messages);
+      } catch (err) {
+        console.error('Failed to get messages:', err);
+        if (callback) callback([]);
+      }
+    });
+
+    // Handle new incoming chat message
+    socket.on('SEND_MESSAGE', async (data) => {
+      try {
+        const { senderRole, encryptedContent } = data;
+        const msg = await Message.create({ senderRole, encryptedContent });
+        io.emit('RECEIVE_MESSAGE', msg);
+      } catch (err) {
+        console.error('Failed to save message:', err);
+      }
+    });
 
     socket.on('disconnect', () => {
       console.log(`🔌 Client disconnected: ${socket.id}`);

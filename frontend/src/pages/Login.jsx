@@ -7,10 +7,9 @@ import { Shield, User } from 'lucide-react';
 
 export function Login() {
   const navigate = useNavigate();
-  const { login, googleSignIn } = useAuth();
+  const { login, signup, googleSignIn } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [roleTab, setRoleTab] = useState('citizen');
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -19,10 +18,9 @@ export function Login() {
     const email = e.target.email.value;
     const password = e.target.password.value;
     try {
+      localStorage.setItem('role', 'citizen');
       await login(email, password);
-      
-      localStorage.setItem('role', roleTab);
-      navigate(roleTab === 'admin' ? '/admin' : '/dashboard');
+      navigate('/dashboard');
     } catch (err) {
       if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
         setError('Invalid email or password.');
@@ -36,10 +34,9 @@ export function Login() {
 
   const handleGoogle = async () => {
     try {
+      localStorage.setItem('role', 'citizen');
       await googleSignIn();
-      
-      localStorage.setItem('role', roleTab);
-      navigate(roleTab === 'admin' ? '/admin' : '/dashboard');
+      navigate('/dashboard');
     } catch (err) {
       if (err.code === 'auth/unauthorized-domain') {
         setError('Google Sign-In blocked: Domain not authorized. Add your domain in Firebase Console -> Authentication -> Settings -> Authorized Domains.');
@@ -52,43 +49,48 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center text-2xl font-bold text-slate-800">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white mr-2">C</div>
-          CivicFlow
-        </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
-          Sign in to your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-600">
-          Or{' '}
-          <Link to="/register" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-            create a new account
-          </Link>
-        </p>
+    <div className="min-h-screen relative flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
+        <img 
+          src="/bg-login.jpg" 
+          alt="Delhi Background" 
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.src = 'https://images.unsplash.com/photo-1587474260584-136574528ed5?q=80&w=2070&auto=format&fit=crop';
+          }}
+        />
+        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px]"></div>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm border border-slate-200 sm:rounded-xl sm:px-10">
-          
-          <div className="flex bg-slate-100 p-1 rounded-lg mb-6">
-            <button
-              onClick={() => setRoleTab('citizen')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${roleTab === 'citizen' ? 'bg-white shadow-sm text-blue-700' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <User className="h-4 w-4" /> Citizen
-            </button>
-            <button
-              onClick={() => setRoleTab('admin')}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-md transition-all ${roleTab === 'admin' ? 'bg-amber-100 shadow-sm text-amber-800' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <Shield className="h-4 w-4" /> Admin
-            </button>
+      <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md">
+        <div className="flex justify-center mb-6">
+          <img 
+            src="/logo-clean.png" 
+            alt="Civic Flow Logo" 
+            className="h-20 object-contain brightness-0 invert"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <div className="hidden h-16 items-center justify-center text-3xl font-bold text-white">
+            CIVIC FLOW
           </div>
+        </div>
+        <div className="bg-white/90 backdrop-blur-xl py-8 px-4 shadow-2xl border border-white/20 sm:rounded-2xl sm:px-10">
+          <h2 className="text-center text-2xl font-extrabold text-slate-900 mb-2">
+            Citizen Login
+          </h2>
+          <p className="text-center text-sm text-slate-600 mb-8">
+            Or{' '}
+            <Link to="/register" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">
+              create a new account
+            </Link>
+          </p>
 
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm font-medium">
               {error}
             </div>
           )}

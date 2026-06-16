@@ -6,6 +6,7 @@ import { complaintService } from '../../services/complaintService';
 import { StatusTimeline } from './StatusTimeline';
 import { motion, AnimatePresence } from 'framer-motion';
 import { onNewComplaint, onHotspotAlert, onComplaintUpdated } from '../../services/socketService';
+import { SecureChatWidget } from './SecureChatWidget';
 
 const STATUS_OPTIONS = [
   { value: 'initiated',            label: 'Initiated',       icon: AlertCircle,  color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200'   },
@@ -82,14 +83,22 @@ function AdminComplaintCard({ complaint, onUpdate }) {
     }
   };
 
+  const emergencyCategories = ['Gas Leakage', 'Building Collapse', 'Electrocution', 'Critical Fire'];
+  const isEmergency = emergencyCategories.includes(complaint.category);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-300 ${
-        justUpdated ? 'border-emerald-300 shadow-emerald-100' : 'border-slate-200 hover:shadow-md'
+      className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-300 relative ${
+        justUpdated ? 'border-emerald-300 shadow-emerald-100' : isEmergency ? 'border-2 border-red-400 bg-red-50/30' : 'border-slate-200 hover:shadow-md'
       }`}
     >
+      {isEmergency && (
+        <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider animate-pulse">
+          Critical Emergency
+        </div>
+      )}
       {/* Header */}
       <div className="p-5 sm:p-6">
         <div className="flex items-start justify-between gap-4">
@@ -409,10 +418,15 @@ export function AdminDashboard() {
     return sortOrder === 'newest' ? bDate - aDate : aDate - bDate;
   });
 
+  const emergencyCategories = ['Gas Leakage', 'Building Collapse', 'Electrocution', 'Critical Fire'];
+  const emergencyComplaints = displayComplaints.filter(c => emergencyCategories.includes(c.category));
+  const standardComplaints = displayComplaints.filter(c => !emergencyCategories.includes(c.category));
+
   const stats = {
     total: complaints.length,
     active: complaints.filter(c => !['resolved','Resolved'].includes(c.status)).length,
     resolved: complaints.filter(c => ['resolved','Resolved'].includes(c.status)).length,
+    emergencies: complaints.filter(c => emergencyCategories.includes(c.category) && !['resolved','Resolved'].includes(c.status)).length
   };
 
   return (
@@ -469,11 +483,12 @@ export function AdminDashboard() {
 
       {/* Stats */}
       {!loading && (
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
           {[
             { label: 'Total', value: stats.total,    color: 'bg-slate-900 text-white' },
             { label: 'Active', value: stats.active,  color: 'bg-blue-600 text-white' },
             { label: 'Resolved', value: stats.resolved, color: 'bg-emerald-600 text-white' },
+            { label: 'Emergencies', value: stats.emergencies, color: 'bg-red-600 text-white animate-pulse' },
           ].map(s => (
             <div key={s.label} className={`${s.color} rounded-2xl px-4 py-3`}>
               <span className="text-2xl font-black">{s.value}</span>
@@ -539,15 +554,38 @@ export function AdminDashboard() {
             <p className="text-slate-400 text-sm mt-1">Try a different status or search term.</p>
           </div>
         ) : (
-          displayComplaints.map(complaint => (
-            <AdminComplaintCard
-              key={complaint.id}
-              complaint={complaint}
-              onUpdate={handleUpdate}
-            />
-          ))
+          <>
+            {emergencyComplaints.length > 0 && (
+              <div className="mb-6">
+                <h2 className="text-lg font-bold text-red-700 flex items-center gap-2 mb-3">
+                  <AlertCircle className="h-5 w-5" /> Active Emergencies
+                </h2>
+                <div className="space-y-4">
+                  {emergencyComplaints.map(complaint => (
+                    <AdminComplaintCard key={complaint.id} complaint={complaint} onUpdate={handleUpdate} />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {standardComplaints.length > 0 && (
+              <div>
+                {emergencyComplaints.length > 0 && (
+                  <h2 className="text-lg font-bold text-slate-800 mb-3">Standard Complaints</h2>
+                )}
+                <div className="space-y-4">
+                  {standardComplaints.map(complaint => (
+                    <AdminComplaintCard key={complaint.id} complaint={complaint} onUpdate={handleUpdate} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
+
+      {/* Real-time E2E Chat */}
+      <SecureChatWidget role="admin" />
     </div>
   );
 }

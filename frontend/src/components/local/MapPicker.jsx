@@ -15,10 +15,18 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
-function LocationMarker({ position, setPosition }) {
+// Delhi Bounds coordinates
+const DELHI_BOUNDS = L.latLngBounds([28.40, 76.80], [28.89, 77.35]);
+
+function LocationMarker({ position, setPosition, setError }) {
   useMapEvents({
     click(e) {
-      setPosition(e.latlng);
+      if (DELHI_BOUNDS.contains(e.latlng)) {
+        setPosition(e.latlng);
+        setError('');
+      } else {
+        setError('Location selection is restricted to Delhi only.');
+      }
     },
   });
 
@@ -29,6 +37,7 @@ function LocationMarker({ position, setPosition }) {
 
 export function MapPicker({ onLocationSelect }) {
   const [position, setPosition] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (position) {
@@ -36,13 +45,19 @@ export function MapPicker({ onLocationSelect }) {
     }
   }, [position, onLocationSelect]);
 
-  // Default to a central location (e.g. New York or any generic city)
-  const defaultCenter = [40.7128, -74.0060];
+  // Center on Delhi
+  const defaultCenter = [28.6139, 77.2090];
 
   const handleAutoDetect = () => {
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition((pos) => {
-        setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        const detectedLatLng = L.latLng(pos.coords.latitude, pos.coords.longitude);
+        if (DELHI_BOUNDS.contains(detectedLatLng)) {
+          setPosition({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setError('');
+        } else {
+          setError('Your auto-detected location is outside Delhi. Please pin location manually.');
+        }
       }, (err) => {
         console.warn("Geolocation failed or denied", err);
       });
@@ -52,6 +67,11 @@ export function MapPicker({ onLocationSelect }) {
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
+        {error && (
+          <span className="text-xs font-semibold text-red-600 bg-red-50 px-2.5 py-1 rounded-md border border-red-150 animate-pulse">
+            ⚠️ {error}
+          </span>
+        )}
         <button 
           type="button" 
           onClick={handleAutoDetect}
@@ -61,17 +81,25 @@ export function MapPicker({ onLocationSelect }) {
         </button>
       </div>
       <div className="h-64 w-full rounded-xl overflow-hidden border border-slate-300 shadow-sm relative z-0">
-        <MapContainer center={defaultCenter} zoom={13} scrollWheelZoom={true} className="h-full w-full">
+        <MapContainer 
+          center={defaultCenter} 
+          zoom={11} 
+          minZoom={10}
+          maxBounds={DELHI_BOUNDS}
+          maxBoundsViscosity={1.0}
+          scrollWheelZoom={true} 
+          className="h-full w-full"
+        >
           <TileLayer
-            attribution='&amp;copy <a href="https://osm.org/copyright">OpenStreetMap</a>'
+            attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-          <LocationMarker position={position} setPosition={setPosition} />
+          <LocationMarker position={position} setPosition={setPosition} setError={setError} />
         </MapContainer>
       </div>
       {position && (
-        <p className="text-xs text-slate-500 font-mono">
-          Selected: {position.lat.toFixed(6)}, {position.lng.toFixed(6)}
+        <p className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+          📍 Location Pinned: {position.lat.toFixed(6)}, {position.lng.toFixed(6)} (Delhi, India)
         </p>
       )}
     </div>

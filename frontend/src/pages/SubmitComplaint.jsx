@@ -8,6 +8,22 @@ import {
 } from 'lucide-react';
 import { complaintService } from '../services/complaintService';
 import { MapPicker } from '../components/local/MapPicker';
+import exifr from 'exifr';
+
+// Haversine formula to calculate distance in meters
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // Earth radius in metres
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
 
 // ──────────────────────────────────────────────
 // Success Screen
@@ -133,7 +149,17 @@ function ErrorBanner({ error, onRetry }) {
 // ──────────────────────────────────────────────
 // Main Page
 // ──────────────────────────────────────────────
-const EMPTY_FORM = { title: '', category: '', location: null, description: '' };
+const EMPTY_FORM = {
+  title: '',
+  category: '',
+  location: null,
+  description: '',
+  landmark: '',
+  occurrenceDate: '',
+  urgency: '',
+  impactScale: '',
+  contactPreference: ''
+};
 
 export function SubmitComplaint() {
   const navigate = useNavigate();
@@ -161,16 +187,49 @@ export function SubmitComplaint() {
     setLoading(true);
     setError('');
     try {
+      if (!file) {
+        setError('A geotagged photo is mandatory for all submissions.');
+        setLoading(false);
+        return;
+      }
+      
+      if (!formData.location) {
+        setError('Please pin the location on the map.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const exifData = await exifr.parse(file);
+        if (!exifData || !exifData.latitude || !exifData.longitude) {
+          setError('The uploaded photo does not contain GPS location data. Please enable location tags on your camera and take a new photo.');
+          setLoading(false);
+          return;
+        }
+
+        const distance = getDistance(exifData.latitude, exifData.longitude, formData.location.lat, formData.location.lng);
+        if (distance > 500) {
+          setError(`The photo's location is ${Math.round(distance)} meters away from the pinned map location. They must be within 500 meters of each other.`);
+          setLoading(false);
+          return;
+        }
+      } catch(err) {
+        setError('Failed to extract GPS data from the photo. Make sure it is an original photo from your camera.');
+        setLoading(false);
+        return;
+      }
+
       const data = new FormData();
       data.append('title', formData.title);
       data.append('category', formData.category);
-      if (formData.location) {
-        data.append('location', JSON.stringify(formData.location));
-      }
+      data.append('location', JSON.stringify(formData.location));
       data.append('description', formData.description);
-      if (file) {
-        data.append('image', file);
-      }
+      data.append('landmark', formData.landmark);
+      data.append('occurrenceDate', formData.occurrenceDate);
+      data.append('urgency', formData.urgency);
+      data.append('impactScale', formData.impactScale);
+      data.append('contactPreference', formData.contactPreference);
+      data.append('image', file);
 
       await complaintService.submitComplaint(data);
 
@@ -240,7 +299,7 @@ export function SubmitComplaint() {
 
   // ── Form state ──
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 max-w-3xl mx-auto">
+    <div className="space-y-4 animate-in fade-in duration-500 max-w-3xl mx-auto">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Submit New Complaint</h1>
         <p className="mt-1 text-sm text-slate-500">Report a public issue directly to the concerned authority.</p>
@@ -250,7 +309,7 @@ export function SubmitComplaint() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm"
+        className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200 shadow-sm"
       >
         {/* Error Banner */}
         {error && (
@@ -260,8 +319,8 @@ export function SubmitComplaint() {
           />
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-3">
 
             {/* Title */}
             <div>
@@ -273,6 +332,20 @@ export function SubmitComplaint() {
                 value={formData.title}
                 onChange={handleChange}
                 placeholder="e.g., Pothole on main street"
+                required
+              />
+            </div>
+
+            {/* Landmark / Street Address */}
+            <div>
+              <label htmlFor="landmark" className="block text-sm font-medium text-slate-700 mb-1">
+                Concerned Landmark / Street Address <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="landmark"
+                value={formData.landmark}
+                onChange={handleChange}
+                placeholder="e.g., Near Metro Station, opposite ABC Store"
                 required
               />
             </div>
@@ -290,13 +363,95 @@ export function SubmitComplaint() {
                 required
               >
                 <option value="" disabled>Select a category</option>
-                <option value="Roads & Infrastructure">Roads &amp; Infrastructure</option>
-                <option value="Utilities">Utilities (Water, Electricity)</option>
-                <option value="Environment">Environment &amp; Sanitation</option>
-                <option value="Noise">Noise Disturbance</option>
-                <option value="Vandalism">Vandalism &amp; Security</option>
-                <option value="Other">Other</option>
+                <optgroup label="Emergency">
+                  <option value="Gas Leakage">Gas Leakage</option>
+                  <option value="Building Collapse">Building Collapse</option>
+                  <option value="Electrocution">Electrocution</option>
+                  <option value="Critical Fire">Critical Fire</option>
+                </optgroup>
+                <optgroup label="Standard">
+                  <option value="Roads & Infrastructure">Roads &amp; Infrastructure</option>
+                  <option value="Utilities">Utilities (Water, Electricity)</option>
+                  <option value="Environment">Environment &amp; Sanitation</option>
+                  <option value="Noise">Noise Disturbance</option>
+                  <option value="Vandalism">Vandalism &amp; Security</option>
+                  <option value="Other">Other</option>
+                </optgroup>
               </select>
+            </div>
+
+            {/* Urgency and Occurrence Date & Time Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="urgency" className="block text-sm font-medium text-slate-700 mb-1">
+                  Urgency Level <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="urgency"
+                  value={formData.urgency}
+                  onChange={handleChange}
+                  className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  required
+                >
+                  <option value="" disabled>Select urgency</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="occurrenceDate" className="block text-sm font-medium text-slate-700 mb-1">
+                  Date &amp; Time Noticed <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  id="occurrenceDate"
+                  value={formData.occurrenceDate}
+                  onChange={handleChange}
+                  className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-slate-700"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Impact Scale and Contact Preference Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="impactScale" className="block text-sm font-medium text-slate-700 mb-1">
+                  Impact / Scale of Issue <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="impactScale"
+                  value={formData.impactScale}
+                  onChange={handleChange}
+                  className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  required
+                >
+                  <option value="" disabled>Select impact scale</option>
+                  <option value="Individual">Individual (Only affects me)</option>
+                  <option value="Few neighbors">Few neighbors</option>
+                  <option value="Whole street/community">Whole street/community</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="contactPreference" className="block text-sm font-medium text-slate-700 mb-1">
+                  Contact Preference <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="contactPreference"
+                  value={formData.contactPreference}
+                  onChange={handleChange}
+                  className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  required
+                >
+                  <option value="" disabled>Select contact preference</option>
+                  <option value="Email">Email</option>
+                  <option value="Phone">Phone Call</option>
+                  <option value="SMS">SMS Message</option>
+                </select>
+              </div>
             </div>
 
             {/* Map */}
@@ -304,7 +459,7 @@ export function SubmitComplaint() {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Pinpoint Location on Map
               </label>
-              <div className="h-[300px] w-full rounded-lg border border-slate-300 overflow-hidden relative z-0">
+              <div className="h-[220px] w-full rounded-lg border border-slate-300 overflow-hidden relative z-0">
                 <MapPicker
                   key={mapKey}
                   onLocationSelect={(loc) => setFormData(prev => ({ ...prev, location: loc }))}
@@ -338,7 +493,7 @@ export function SubmitComplaint() {
 
             {/* Image upload */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Evidence Photo (optional)</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Evidence Photo <span className="text-red-500">* (Geotag required)</span></label>
               {!preview ? (
                 <label
                   htmlFor="file-upload"

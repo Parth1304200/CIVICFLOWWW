@@ -17,6 +17,10 @@ export const complaintService = {
     return api.get('/complaints/hotspots');
   },
 
+  getNearbyComplaints: async (lat, lng, radius = 2) => {
+    return api.get('/complaints/nearby', { params: { lat, lng, radius } });
+  },
+
   submitComplaint: async (complaintData) => {
     return api.post('/complaints', complaintData);
   },

@@ -19,6 +19,11 @@ const fmt = (c) => ({
   location: c.location || null,
   updates: c.updates || [],
   description: c.description,
+  landmark: c.landmark || '',
+  occurrenceDate: c.occurrenceDate || null,
+  urgency: c.urgency || '',
+  impactScale: c.impactScale || '',
+  contactPreference: c.contactPreference || '',
 });
 
 // ── GET ALL COMPLAINTS ────────────────────────────────────
@@ -38,6 +43,40 @@ exports.getMyComplaints = async (req, res, next) => {
     const complaints = await Complaint.find({ user: userId }).sort({ createdAt: -1 });
     const list = Array.isArray(complaints) ? complaints : [];
     res.status(200).json(list.map(fmt));
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── GET NEARBY COMPLAINTS (2km Radius) ────────────────────
+exports.getNearbyComplaints = async (req, res, next) => {
+  try {
+    const { lat, lng, radius = 2 } = req.query; // radius in km
+    if (!lat || !lng) {
+      return res.status(400).json({ status: 'fail', message: 'Please provide lat and lng' });
+    }
+
+    const complaints = await Complaint.find();
+    const list = Array.isArray(complaints) ? complaints : [];
+    
+    // Haversine formula to calculate distance in km
+    const R = 6371; // Earth's radius in km
+    const toRad = (value) => (value * Math.PI) / 180;
+
+    const nearby = list.filter((c) => {
+      if (!c.location || !c.location.lat || !c.location.lng) return false;
+      const dLat = toRad(c.location.lat - lat);
+      const dLng = toRad(c.location.lng - lng);
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(toRad(lat)) * Math.cos(toRad(c.location.lat)) *
+        Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      const cDist = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distance = R * cDist;
+      return distance <= radius;
+    });
+
+    res.status(200).json(nearby.map(c => ({ ...fmt(c), distance: undefined })));
   } catch (error) {
     next(error);
   }
@@ -81,7 +120,17 @@ exports.getHotspots = async (req, res, next) => {
 // ── CREATE COMPLAINT (with ML classification + hotspot detection) ──
 exports.createComplaint = async (req, res, next) => {
   try {
-    let { title, category, location, description } = req.body;
+    let {
+      title,
+      category,
+      location,
+      description,
+      landmark,
+      occurrenceDate,
+      urgency,
+      impactScale,
+      contactPreference
+    } = req.body;
 
     if (typeof location === 'string' && location.startsWith('{')) {
       try { location = JSON.parse(location); } catch (e) { /* keep as string */ }
@@ -107,6 +156,11 @@ exports.createComplaint = async (req, res, next) => {
       category,
       location,
       description,
+      landmark,
+      occurrenceDate,
+      urgency,
+      impactScale,
+      contactPreference,
       image: imagePath,
       user: String(req.user._id),
       status: 'initiated',

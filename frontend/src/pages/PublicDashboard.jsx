@@ -41,7 +41,16 @@ export function PublicDashboard() {
     <div className="min-h-screen bg-slate-50">
       <nav className="flex items-center justify-between p-6 max-w-7xl w-full mx-auto border-b border-slate-200 bg-white">
         <div className="flex items-center gap-2 font-bold text-xl text-slate-800">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">C</div>
+          <img 
+            src="/logo-clean.png" 
+            alt="Civic Flow Logo" 
+            className="h-8 object-contain"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <div className="hidden h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white">C</div>
           CivicFlow Public Insights
         </div>
         <div className="flex items-center gap-4">
