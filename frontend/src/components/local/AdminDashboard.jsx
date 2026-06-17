@@ -337,7 +337,7 @@ export function AdminDashboard() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { user } = useAuth();
+  const { user, fetchMe } = useAuth();
 
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortOrder, setSortOrder] = useState('newest');
@@ -354,13 +354,16 @@ export function AdminDashboard() {
     try {
       const res = await complaintService.getComplaints();
       setComplaints(res.data);
+      if (typeof fetchMe === 'function') {
+        await fetchMe();
+      }
     } catch(e) {
       console.error(e);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [fetchMe]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -381,6 +384,9 @@ export function AdminDashboard() {
       setComplaints(prev =>
         prev.map(c => c.id === data.complaint.id ? data.complaint : c)
       );
+      if (typeof fetchMe === 'function') {
+        fetchMe();
+      }
     });
 
     return () => {
@@ -388,7 +394,7 @@ export function AdminDashboard() {
       unsubHotspot();
       unsubUpdate();
     };
-  }, []);
+  }, [fetchMe]);
 
   const handleUpdate = async (id, status, message, proofImage) => {
     await complaintService.updateComplaintStatus(id, { status, message, proofImage });
@@ -398,6 +404,9 @@ export function AdminDashboard() {
         ? { ...c, status, proofImage: proofImage || c.proofImage, updates: [...(c.updates || []), newUpdate] }
         : c
     ));
+    if (typeof fetchMe === 'function') {
+      await fetchMe();
+    }
   };
 
   let displayComplaints = [...complaints];
@@ -428,6 +437,12 @@ export function AdminDashboard() {
     resolved: complaints.filter(c => ['resolved','Resolved'].includes(c.status)).length,
     emergencies: complaints.filter(c => emergencyCategories.includes(c.category) && !['resolved','Resolved'].includes(c.status)).length
   };
+
+  const myFlaggedComplaints = complaints.filter(c =>
+    c.resolvedBy && String(c.resolvedBy) === String(user?._id) &&
+    c.falseClosureReport?.isReported === true &&
+    c.falseClosureReport?.status === 'Pending'
+  );
 
   return (
     <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8 animate-in fade-in duration-500">
@@ -483,18 +498,40 @@ export function AdminDashboard() {
 
       {/* Stats */}
       {!loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
           {[
             { label: 'Total', value: stats.total,    color: 'bg-slate-900 text-white' },
             { label: 'Active', value: stats.active,  color: 'bg-blue-600 text-white' },
             { label: 'Resolved', value: stats.resolved, color: 'bg-emerald-600 text-white' },
             { label: 'Emergencies', value: stats.emergencies, color: 'bg-red-600 text-white animate-pulse' },
+            { label: 'Performance Points', value: user?.points !== undefined ? user.points : 0, color: 'bg-violet-600 text-white' },
           ].map(s => (
-            <div key={s.label} className={`${s.color} rounded-2xl px-4 py-3`}>
+            <div key={s.label} className={`${s.color} rounded-2xl px-4 py-3 shadow-sm`}>
               <span className="text-2xl font-black">{s.value}</span>
               <p className="text-xs font-medium opacity-80 mt-0.5">{s.label}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* False Closure Reports Alert */}
+      {myFlaggedComplaints.length > 0 && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-3 shadow-sm animate-in fade-in duration-300">
+          <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <h4 className="font-bold text-amber-800 text-sm">Action Required: Flagged Resolutions</h4>
+            <p className="text-amber-700 text-xs mt-0.5">
+              Citizens have reported {myFlaggedComplaints.length} of your resolved complaints as incomplete or fake closures. These reports are currently under Chief Minister (CM) review:
+            </p>
+            <ul className="mt-2 space-y-1.5 border-t border-amber-200/50 pt-2">
+              {myFlaggedComplaints.map(c => (
+                <li key={c.id} className="text-xs text-amber-900 font-medium list-disc list-inside">
+                  <span className="font-mono bg-amber-100 px-1 py-0.5 rounded font-bold">#{c.id}</span> - "{c.title}" 
+                  <span className="text-amber-700 italic ml-1">(Reason: {c.falseClosureReport?.reason})</span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 

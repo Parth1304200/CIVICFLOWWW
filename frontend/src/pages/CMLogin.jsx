@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { MapPin } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -42,8 +42,15 @@ export function CMLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen relative bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+      <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md">
+        <Link 
+          to="/" 
+          className="absolute -top-12 left-4 sm:-left-12 sm:top-2 flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+          title="Back to Home"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="m15 18-6-6 6-6"/></svg>
+        </Link>
         <div className="flex justify-center mb-6">
           <img 
             src="/logo-clean.png" 

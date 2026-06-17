@@ -90,6 +90,14 @@ class LocalCollection {
 
   _wrap(doc) {
     if (!doc) return null;
+    if (this.name === 'users') {
+      if (doc.points === undefined) doc.points = 0;
+      if (doc.isProfileSetup === undefined) doc.isProfileSetup = false;
+    } else if (this.name === 'complaints') {
+      if (doc.falseClosureReport === undefined) {
+        doc.falseClosureReport = { isReported: false, reason: '', status: 'Pending' };
+      }
+    }
     return new LocalDoc(doc, this);
   }
 

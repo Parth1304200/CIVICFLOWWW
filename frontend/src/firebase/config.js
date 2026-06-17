@@ -5,13 +5,13 @@ import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDDa5ECYhD1iJk1Tk35cSJjvejz0yCZqbI",
-  authDomain: "civicflow-9aaf4.firebaseapp.com",
-  projectId: "civicflow-9aaf4",
-  storageBucket: "civicflow-9aaf4.firebasestorage.app",
-  messagingSenderId: "870691282618",
-  appId: "1:870691282618:web:2771518c4df263a8a16c83",
-  measurementId: "G-WL3K70BS6B"
+  apiKey: "AIzaSyC4aurkqrZUG6CoVz07b6uUkRdZYyxq3Qk",
+  authDomain: "lumeeducation-9da13.firebaseapp.com",
+  projectId: "lumeeducation-9da13",
+  storageBucket: "lumeeducation-9da13.firebasestorage.app",
+  messagingSenderId: "846710827476",
+  appId: "1:846710827476:web:104c32dca9bfaae51c4e41",
+  measurementId: "G-T8V03292J8"
 };
 
 const app = initializeApp(firebaseConfig);

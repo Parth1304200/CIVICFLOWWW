@@ -3,9 +3,24 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { useAuth } from '../../context/AuthContext';
 
 export function ComplaintTable({ complaints }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  const displayId = (complaint) => {
+    // If admin or CM, show full ID
+    if (user?.role === 'admin' || user?.role === 'cm') {
+      return complaint.id;
+    }
+    // If citizen and registered by this user, show full ID
+    if (user?._id && String(complaint.userId) === String(user._id)) {
+      return complaint.id;
+    }
+    // Otherwise, mask it
+    return '••••••';
+  };
 
   const getStatusVariant = (status) => {
     switch (status.toLowerCase()) {
@@ -53,7 +68,7 @@ export function ComplaintTable({ complaints }) {
                   key={complaint.id} 
                   className="hover:bg-slate-50 transition-colors"
                 >
-                  <td className="px-6 py-4 font-medium text-slate-900">{complaint.id}</td>
+                  <td className="px-6 py-4 font-medium text-slate-900 font-mono">{displayId(complaint)}</td>
                   <td className="px-6 py-4">{complaint.title}</td>
                   <td className="px-6 py-4 text-slate-500">{complaint.category}</td>
                   <td className="px-6 py-4">

@@ -23,6 +23,7 @@ const complaintSchema = new mongoose.Schema({
       'Building Collapse',
       'Electrocution',
       'Critical Fire',
+      'Emergency Other',
       // ML Government categories
       'Roads',
       'Water',
@@ -101,6 +102,16 @@ const complaintSchema = new mongoose.Schema({
     type: mongoose.Schema.ObjectId,
     ref: 'User',
     required: true
+  },
+  resolvedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  falseClosureReport: {
+    isReported: { type: Boolean, default: false },
+    reason: { type: String, default: '' },
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' }
   }
 }, {
   timestamps: true

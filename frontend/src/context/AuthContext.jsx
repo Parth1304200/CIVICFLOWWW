@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { auth, db } from '../firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
@@ -65,6 +65,7 @@ export const AuthProvider = ({ children }) => {
     photo: backendUser?.photo || '',
     nagrikId: backendUser?.nagrikId || '',
     _id: backendUser?._id || backendUser?.id || null,
+    points: backendUser?.points || 0,
   });
 
   // ── Firebase auth state listener (page load / token refresh) ───────────────
@@ -206,7 +207,39 @@ export const AuthProvider = ({ children }) => {
     return updatedUser;
   };
 
-  const value = { user, loading, login, signup, logout, googleSignIn, setupProfile };
+  const fetchMe = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      const res = await fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const backendUser = data?.data?.user;
+        if (backendUser) {
+          setUser((prev) => {
+            if (!prev) return buildUser({}, backendUser);
+            if (
+              prev.points === backendUser.points &&
+              prev.isProfileSetup === backendUser.isProfileSetup &&
+              prev.role === backendUser.role &&
+              prev.name === backendUser.name
+            ) {
+              return prev;
+            }
+            return buildUser(prev, backendUser);
+          });
+          return backendUser;
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch user profile:', err);
+    }
+    return null;
+  }, []);
+
+  const value = { user, loading, login, signup, logout, googleSignIn, setupProfile, fetchMe };
 
   return (
     <AuthContext.Provider value={value}>

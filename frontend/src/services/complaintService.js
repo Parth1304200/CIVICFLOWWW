@@ -29,4 +29,9 @@ export const complaintService = {
   updateComplaintStatus: async (id, payload) => {
     return api.patch(`/complaints/${id}/status`, payload);
   },
+
+  // CM: handle false closure reports (action: 'Approve' | 'Reject')
+  handleFalseClosure: async (id, action) => {
+    return api.post(`/complaints/${id}/false-closure/handle`, { action });
+  },
 };

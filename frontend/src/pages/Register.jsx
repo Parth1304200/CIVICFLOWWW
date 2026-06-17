@@ -130,47 +130,65 @@ export function Register() {
   const isPasswordStrong = score >= 3;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center mb-6">
+    <div className="min-h-screen flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8 relative overflow-hidden">
+      {/* Background Image */}
+      <div className="absolute inset-0 z-0">
+        <img
+          src="/bg-login.jpg"
+          alt="Delhi Background"
+          className="w-full h-full object-cover"
+          onError={(e) => {
+            e.target.src = 'https://www.mistay.in/travel-blog/content/images/2020/06/humayuns-tomb.jpg';
+          }}
+        />
+        <div className="absolute inset-0 bg-slate-900/40"></div>
+      </div>
+
+      <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md w-full">
+        <Link
+          to="/"
+          className="absolute -top-12 left-0 sm:-left-12 sm:top-2 flex items-center justify-center h-10 w-10 rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white/30 transition-colors shadow-sm"
+          title="Back to Home"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5"><path d="m15 18-6-6 6-6" /></svg>
+        </Link>
+        <div className="flex justify-center mb-4">
           <img 
             src="/logo-clean.png" 
             alt="Civic Flow Logo" 
-            className="h-16 object-contain"
+            className="h-12 object-contain"
             onError={(e) => {
               e.target.style.display = 'none';
               e.target.nextSibling.style.display = 'flex';
             }}
           />
-          <div className="hidden h-12 items-center justify-center text-2xl font-bold text-slate-800">
+          <div className="hidden h-12 items-center justify-center text-xl font-bold text-white">
             CIVIC FLOW
           </div>
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
-          Create your account
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-600">
-          Already have an account?{' '}
-          <Link to="/login" className="font-medium text-blue-600 hover:text-blue-500 transition-colors">
-            Sign in
-          </Link>
-        </p>
-      </div>
-
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-sm border border-slate-200 sm:rounded-2xl sm:px-10">
+        
+        <div className="bg-white/90 backdrop-blur-xl py-6 px-5 shadow-2xl border border-white/20 rounded-2xl sm:px-8 w-full">
+          <h2 className="text-center text-xl font-extrabold text-slate-900 mb-1">
+            Create your account
+          </h2>
+          <p className="text-center text-xs text-slate-600 mb-4">
+            Already have an account?{' '}
+            <Link to="/login" className="font-bold text-blue-600 hover:text-blue-500 transition-colors">
+              Sign in
+            </Link>
+          </p>
 
           {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm flex items-start gap-2">
+            <div className="mb-3 bg-red-50 border border-red-200 text-red-600 px-3 py-2 rounded-lg text-xs flex items-start gap-2">
               <span className="text-red-400 mt-0.5">⚠</span>
               {error}
             </div>
           )}
 
           {/* Google Sign-up */}
-          <div className="mb-6">
-            <Button variant="secondary" onClick={handleGoogle} className="w-full flex justify-center gap-3 items-center">
-              <svg className="h-5 w-5" aria-hidden="true" viewBox="0 0 24 24">
+          <div className="mb-4">
+            <Button variant="secondary" onClick={handleGoogle} className="w-full flex justify-center gap-2 items-center py-2 text-sm">
+              <svg className="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24">
                 <path d="M12.0003 4.75C13.7703 4.75 15.3553 5.36002 16.6053 6.54998L20.0303 3.125C17.9502 1.19 15.2353 0 12.0003 0C7.31028 0 3.25527 2.69 1.28027 6.60998L5.27028 9.70498C6.21525 6.86002 8.87028 4.75 12.0003 4.75Z" fill="#EA4335" />
                 <path d="M23.49 12.275C23.49 11.49 23.415 10.73 23.3 10H12V14.51H18.47C18.18 15.99 17.34 17.25 16.08 18.1L19.945 21.1C22.2 19.01 23.49 15.92 23.49 12.275Z" fill="#4285F4" />
                 <path d="M5.26498 14.2949C5.02498 13.5699 4.88501 12.7999 4.88501 11.9999C4.88501 11.1999 5.01998 10.4299 5.26498 9.7049L1.275 6.60986C0.46 8.22986 0 10.0599 0 11.9999C0 13.9399 0.46 15.7699 1.28 17.3899L5.26498 14.2949Z" fill="#FBBC05" />
@@ -178,33 +196,33 @@ export function Register() {
               </svg>
               Sign up with Google
             </Button>
-            <div className="mt-6 flex items-center">
+            <div className="mt-4 flex items-center">
               <div className="w-full border-t border-slate-200"></div>
-              <div className="px-3 text-sm text-slate-500 whitespace-nowrap">Or continue with email</div>
+              <div className="px-3 text-xs text-slate-500 whitespace-nowrap">Or continue with email</div>
               <div className="w-full border-t border-slate-200"></div>
             </div>
           </div>
 
-          <form className="space-y-5" onSubmit={handleRegister}>
+          <form className="space-y-4" onSubmit={handleRegister}>
             {/* Full Name */}
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-slate-700">Full Name</label>
+              <label htmlFor="name" className="block text-xs font-medium text-slate-700">Full Name</label>
               <div className="mt-1">
-                <Input id="name" name="name" type="text" autoComplete="name" placeholder="Your full name" required />
+                <Input id="name" name="name" type="text" autoComplete="name" placeholder="Your full name" required className="py-1.5 text-sm" />
               </div>
             </div>
 
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-700">Email address</label>
+              <label htmlFor="email" className="block text-xs font-medium text-slate-700">Email address</label>
               <div className="mt-1">
-                <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
+                <Input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required className="py-1.5 text-sm" />
               </div>
             </div>
 
             {/* Password with strength meter */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-slate-700">
+              <label htmlFor="password" className="block text-xs font-medium text-slate-700">
                 Password
               </label>
               <div className="mt-1 relative">
@@ -217,7 +235,7 @@ export function Register() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Create a strong password"
                   required
-                  className="flex h-10 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  className="flex h-9 w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 pr-10 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                 />
                 <button
                   type="button"
@@ -234,9 +252,9 @@ export function Register() {
 
               {/* Security banner when strong */}
               {isPasswordStrong && (
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5">
                   <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0" />
-                  Your password meets the security requirements
+                  Password meets security requirements
                 </div>
               )}
             </div>
@@ -244,14 +262,14 @@ export function Register() {
             <div className="pt-1">
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full py-2 text-sm"
                 isLoading={loading}
                 disabled={loading || !isPasswordStrong}
               >
                 Create Account
               </Button>
               {!isPasswordStrong && password.length > 0 && (
-                <p className="text-xs text-center text-slate-400 mt-2">
+                <p className="text-[10px] text-center text-slate-400 mt-2">
                   Strengthen your password to enable account creation
                 </p>
               )}

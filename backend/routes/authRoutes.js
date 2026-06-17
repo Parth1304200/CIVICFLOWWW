@@ -19,4 +19,7 @@ router.post('/login', validate(loginSchema), authController.login);
 // POST /api/auth/setup-profile
 router.post('/setup-profile', auth, upload.single('photo'), authController.setupProfile);
 
+// GET /api/auth/me
+router.get('/me', auth, authController.getMe);
+
 module.exports = router;

@@ -1,0 +1,13 @@
+# CivicSense Project Requirements
+
+## Runtime Environment
+Node.js >= 18.0.0
+npm >= 9.0.0
+
+## Database
+MongoDB >= 6.0.0 (or MongoDB Atlas Connection)
+
+## Authentication & Services
+Firebase Authentication Project
+Socket.io (for real-time dashboard notifications)
+Vite >= 5.0.0 (for frontend development and bundling)

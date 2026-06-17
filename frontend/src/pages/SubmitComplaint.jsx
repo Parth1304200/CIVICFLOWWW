@@ -152,6 +152,7 @@ function ErrorBanner({ error, onRetry }) {
 const EMPTY_FORM = {
   title: '',
   category: '',
+  emergencyOtherText: '',
   location: null,
   description: '',
   landmark: '',
@@ -223,7 +224,12 @@ export function SubmitComplaint() {
       data.append('title', formData.title);
       data.append('category', formData.category);
       data.append('location', JSON.stringify(formData.location));
-      data.append('description', formData.description);
+      
+      const finalDescription = formData.category === 'Emergency Other' 
+        ? `Emergency Specifics: ${formData.emergencyOtherText}\n\n${formData.description}`
+        : formData.description;
+      data.append('description', finalDescription);
+      
       data.append('landmark', formData.landmark);
       data.append('occurrenceDate', formData.occurrenceDate);
       data.append('urgency', formData.urgency);
@@ -368,6 +374,7 @@ export function SubmitComplaint() {
                   <option value="Building Collapse">Building Collapse</option>
                   <option value="Electrocution">Electrocution</option>
                   <option value="Critical Fire">Critical Fire</option>
+                  <option value="Emergency Other">Other</option>
                 </optgroup>
                 <optgroup label="Standard">
                   <option value="Roads & Infrastructure">Roads &amp; Infrastructure</option>
@@ -379,6 +386,27 @@ export function SubmitComplaint() {
                 </optgroup>
               </select>
             </div>
+
+            {/* Emergency Other Text Box */}
+            {formData.category === 'Emergency Other' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <label htmlFor="emergencyOtherText" className="block text-sm font-medium text-slate-700 mb-1 mt-3">
+                  Specify the Emergency <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  id="emergencyOtherText"
+                  value={formData.emergencyOtherText}
+                  onChange={handleChange}
+                  placeholder="Describe the type of emergency..."
+                  required
+                />
+              </motion.div>
+            )}
 
             {/* Urgency and Occurrence Date & Time Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

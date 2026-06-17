@@ -24,6 +24,9 @@ const fmt = (c) => ({
   urgency: c.urgency || '',
   impactScale: c.impactScale || '',
   contactPreference: c.contactPreference || '',
+  resolvedBy: c.resolvedBy || null,
+  falseClosureReport: c.falseClosureReport || null,
+  userId: c.user ? String(c.user) : null,
 });
 
 // ── GET ALL COMPLAINTS ────────────────────────────────────
@@ -226,6 +229,18 @@ exports.updateComplaintStatus = async (req, res, next) => {
     if (!complaint) return next(new AppError('Complaint not found', 404));
 
     if (status) complaint.status = status;
+    
+    // Award point if resolving for the first time
+    if ((status === 'resolved' || status === 'Resolved' || status === 'fixing_issues') && !complaint.resolvedBy) {
+      complaint.resolvedBy = req.user._id;
+      const { User } = require('../utils/dbAdapter');
+      const adminUser = await User.findById(req.user._id);
+      if (adminUser) {
+        adminUser.points = (adminUser.points || 0) + 1;
+        if (adminUser.save) await adminUser.save();
+      }
+    }
+
     if (message || status) {
       complaint.updates = complaint.updates || [];
       complaint.updates.push({
@@ -247,6 +262,77 @@ exports.updateComplaintStatus = async (req, res, next) => {
       });
     }
 
+    res.status(200).json(complaint);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── CITIZEN: REPORT FALSE CLOSURE ─────────────────────────────
+exports.reportFalseClosure = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    let complaint = await Complaint.findById(id);
+
+    if (!complaint) {
+      const all = await Complaint.find();
+      const list = Array.isArray(all) ? all : [];
+      complaint = list.find(c => String(c._id).slice(-6).toUpperCase() === id.toUpperCase());
+    }
+    if (!complaint) return next(new AppError('Complaint not found', 404));
+
+    complaint.falseClosureReport = {
+      isReported: true,
+      reason,
+      status: 'Pending'
+    };
+    
+    if (complaint.save) await complaint.save();
+    res.status(200).json(complaint);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ── CM: HANDLE FALSE CLOSURE ─────────────────────────────
+exports.handleFalseClosure = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'Approve' or 'Reject'
+    let complaint = await Complaint.findById(id);
+
+    if (!complaint) {
+      const all = await Complaint.find();
+      const list = Array.isArray(all) ? all : [];
+      complaint = list.find(c => String(c._id).slice(-6).toUpperCase() === id.toUpperCase());
+    }
+    if (!complaint) return next(new AppError('Complaint not found', 404));
+
+    if (action === 'Approve') {
+      complaint.falseClosureReport.status = 'Approved';
+      complaint.status = 'In Progress'; // Reopen
+      complaint.updates = complaint.updates || [];
+      complaint.updates.push({
+        status: 'In Progress',
+        message: 'False closure report approved by CM. Complaint reopened.',
+        timestamp: new Date().toISOString()
+      });
+
+      // Penalize Admin
+      if (complaint.resolvedBy) {
+        const { User } = require('../utils/dbAdapter');
+        const adminUser = await User.findById(complaint.resolvedBy);
+        if (adminUser) {
+          adminUser.points = (adminUser.points || 0) - 5;
+          if (adminUser.save) await adminUser.save();
+        }
+      }
+    } else {
+      complaint.falseClosureReport.status = 'Rejected';
+    }
+
+    if (complaint.save) await complaint.save();
     res.status(200).json(complaint);
   } catch (error) {
     next(error);

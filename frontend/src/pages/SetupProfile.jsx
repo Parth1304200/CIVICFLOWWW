@@ -82,10 +82,6 @@ export function SetupProfile() {
       setError('Please enter a valid phone number (10-15 digits).');
       return;
     }
-    if (!file) {
-      setError('Please upload a profile photo with your face clearly visible.');
-      return;
-    }
 
     setLoading(true);
     setError('');
@@ -99,7 +95,9 @@ export function SetupProfile() {
       data.append('gender', formData.gender);
       data.append('phone', formData.phone.trim());
       data.append('dob', formData.dob);
-      data.append('photo', file);
+      if (file) {
+        data.append('photo', file);
+      }
 
       await setupProfile(data);
       // Navigation is handled by the useEffect above that watches user.isProfileSetup
@@ -297,7 +295,7 @@ export function SetupProfile() {
             {/* Profile Photo Upload */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
-                Profile Photo (Face clearly visible) <span className="text-red-500">*</span>
+                Profile Photo (Optional)
               </label>
               {!preview ? (
                 <label
@@ -307,7 +305,7 @@ export function SetupProfile() {
                   <ImageIcon className="mx-auto h-10 w-10 text-slate-400 mb-2" />
                   <span className="text-sm font-medium text-blue-600">Click to upload photo</span>
                   <span className="text-xs text-slate-400 mt-1">PNG, JPG, JPEG up to 5MB</span>
-                  <input id="file-upload" name="photo" type="file" className="sr-only" accept="image/*" onChange={handleFileChange} required />
+                  <input id="file-upload" name="photo" type="file" className="sr-only" accept="image/*" onChange={handleFileChange} />
                 </label>
               ) : (
                 <div className="relative mt-1 inline-block">
