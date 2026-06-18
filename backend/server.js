@@ -25,7 +25,13 @@ const startServer = async () => {
   // ── Socket.io ──────────────────────────────────────────────────────────────
   const io = new Server(server, {
     cors: {
-      origin: ALLOWED_ORIGINS,
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+        // Allow any localhost / 127.0.0.1 origin in dev — Vite may pick 5173, 5174, 5175, …
+        if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return callback(null, true);
+        callback(new Error(`CORS policy: origin ${origin} not allowed`));
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },

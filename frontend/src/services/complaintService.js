@@ -39,4 +39,9 @@ export const complaintService = {
   handleFalseClosure: async (id, action) => {
     return api.post(`/complaints/${id}/false-closure/handle`, { action });
   },
+
+  // CM/Admin: officer performance & workload overview
+  getOfficers: async () => {
+    return api.get('/complaints/officers');
+  },
 };

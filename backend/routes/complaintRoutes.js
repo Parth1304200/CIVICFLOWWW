@@ -1,6 +1,7 @@
 const express = require('express');
-const { getComplaints, getStats, createComplaint, getMyComplaints, updateComplaintStatus, getHotspots, getNearbyComplaints, reportFalseClosure, handleFalseClosure, voteComplaint } = require('../controllers/complaintController');
+const { getComplaints, getStats, createComplaint, getMyComplaints, updateComplaintStatus, getHotspots, getNearbyComplaints, reportFalseClosure, handleFalseClosure, voteComplaint, getOfficers } = require('../controllers/complaintController');
 const auth = require('../middlewares/auth');
+const restrictTo = require('../middlewares/restrictTo');
 const upload = require('../middlewares/upload');
 
 const router = express.Router();
@@ -14,10 +15,14 @@ router.get('/hotspots', getHotspots);
 router.use(auth);
 router.get('/me', getMyComplaints);
 router.get('/nearby', getNearbyComplaints);
+// CM/officers oversight of the team's performance & workload
+router.get('/officers', restrictTo('admin', 'manager', 'cm'), getOfficers);
 router.post('/', upload.single('image'), createComplaint);
-router.patch('/:id/status', updateComplaintStatus);
+// Only staff (not citizens) may change a complaint's status
+router.patch('/:id/status', restrictTo('admin', 'manager', 'sales', 'cm'), updateComplaintStatus);
 router.post('/:id/vote', voteComplaint);
 router.post('/:id/false-closure', reportFalseClosure);
-router.post('/:id/false-closure/handle', handleFalseClosure);
+// Only the CM may rule on false-closure reports (prevents admins clearing reports against themselves)
+router.post('/:id/false-closure/handle', restrictTo('cm'), handleFalseClosure);
 
 module.exports = router;

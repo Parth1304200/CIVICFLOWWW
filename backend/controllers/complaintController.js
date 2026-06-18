@@ -404,6 +404,56 @@ exports.updateComplaintStatus = async (req, res, next) => {
   }
 };
 
+// ── CM/ADMIN: OFFICER (ADMIN) PERFORMANCE OVERVIEW ────────────
+// Powers the CM's oversight of the team: who is handling what, their active
+// workload (bandwidth), resolution count, performance points, and how many of
+// their resolutions were overturned as false closures (corruption signal).
+exports.getOfficers = async (req, res, next) => {
+  try {
+    const { User } = require('../utils/dbAdapter');
+    const allUsers = await User.find();
+    const userList = Array.isArray(allUsers) ? allUsers : [];
+    const officers = userList.filter(u => ['admin', 'manager', 'sales'].includes(u.role));
+
+    const allComplaints = await Complaint.find();
+    const complaintList = Array.isArray(allComplaints) ? allComplaints : [];
+
+    const RESOLVED = ['resolved', 'Resolved'];
+    const ACTIVE = ['initiated', 'under_review', 'construction_ongoing', 'fixing_issues', 'In Progress', 'Pending', 'Escalated'];
+
+    const data = officers.map(o => {
+      const oid = String(o._id);
+      const handled = complaintList.filter(c => c.resolvedBy && String(c.resolvedBy) === oid);
+      const resolved = handled.filter(c => RESOLVED.includes(c.status)).length;
+      const active = handled.filter(c => ACTIVE.includes(c.status)).length;
+      const falseClosures = complaintList.filter(c =>
+        c.resolvedBy && String(c.resolvedBy) === oid &&
+        c.falseClosureReport?.isReported === true &&
+        c.falseClosureReport?.status === 'Approved'
+      ).length;
+      return {
+        id: String(o._id).slice(-6).toUpperCase(),
+        name: o.name || 'Officer',
+        email: o.email || '',
+        role: o.role,
+        phone: o.phone || '',
+        points: o.points || 0,
+        active,                 // current workload / bandwidth
+        resolved,
+        totalHandled: handled.length,
+        falseClosures,          // overturned resolutions (integrity flag)
+      };
+    });
+
+    // Most reliable first (points desc), then by workload
+    data.sort((a, b) => (b.points - a.points) || (b.resolved - a.resolved));
+
+    res.status(200).json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ── CITIZEN: REPORT FALSE CLOSURE ─────────────────────────────
 exports.reportFalseClosure = async (req, res, next) => {
   try {
