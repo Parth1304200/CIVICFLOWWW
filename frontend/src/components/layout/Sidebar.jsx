@@ -31,7 +31,7 @@ export function Sidebar({ isOpen, setIsOpen }) {
       {/* Mobile Backdrop */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-20 bg-black/50 lg:hidden" 
+          className="fixed inset-0 z-[1040] bg-black/50 lg:hidden" 
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -39,7 +39,7 @@ export function Sidebar({ isOpen, setIsOpen }) {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
+          'fixed inset-y-0 left-0 z-[1050] w-64 bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0',
           isOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -68,6 +68,7 @@ export function Sidebar({ isOpen, setIsOpen }) {
             <NavLink
               key={item.name}
               to={item.path}
+              onClick={() => setIsOpen(false)}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',

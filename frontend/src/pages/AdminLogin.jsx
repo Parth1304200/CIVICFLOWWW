@@ -45,7 +45,7 @@ export function AdminLogin() {
 
   return (
     <div className="min-h-screen relative bg-slate-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="relative z-10 mx-auto w-full max-w-[90%] sm:max-w-md">
         <Link 
           to="/" 
           className="absolute -top-12 left-4 sm:-left-12 sm:top-2 flex items-center justify-center h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -67,14 +67,14 @@ export function AdminLogin() {
             CIVIC FLOW
           </div>
         </div>
-        <h2 className="mt-2 text-center text-3xl font-extrabold text-white mb-2">
+        <h2 className="mt-2 text-center text-2xl sm:text-3xl font-extrabold text-white mb-2">
           Admin Portal
         </h2>
         <p className="mt-2 text-center text-sm text-slate-400 mb-8">
           Secure Government Login
         </p>
 
-        <div className="bg-white py-8 px-4 shadow-sm border border-slate-200 sm:rounded-xl sm:px-10">
+        <div className="bg-white py-6 px-6 shadow-sm border border-slate-200 rounded-xl sm:rounded-xl sm:px-10">
           {error && (
             <div className="mb-6 bg-red-50 text-red-600 text-sm p-3 rounded-lg border border-red-100 text-center">
               {error}

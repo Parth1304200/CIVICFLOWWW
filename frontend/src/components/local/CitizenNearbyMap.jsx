@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, ThumbsUp, Crosshair, Loader2, AlertCircle } from 'lucide-react';
@@ -22,13 +21,119 @@ L.Icon.Default.mergeOptions({
 const RESOLVED_STATUSES = ['resolved', 'Resolved'];
 const RADIUS_KM = 2;
 
+/**
+ * Imperative Leaflet map panel for nearby complaints.
+ * react-leaflet components are intentionally NOT used — see MapPicker.jsx for
+ * the full explanation of why this is required for React 19 compatibility.
+ */
+function NearbyMapPanel({ location, complaints }) {
+  const containerRef = useRef(null);
+  const mapRef       = useRef(null);
+  const selfMarkerRef = useRef(null);
+  const circleRef    = useRef(null);
+  const complaintMarkersRef = useRef([]);
+  const mountedRef   = useRef(true);
+
+  // Create the map once on mount
+  useEffect(() => {
+    mountedRef.current = true;
+    const el = containerRef.current;
+    if (!el || !location) return;
+
+    let map;
+    try {
+      map = L.map(el, {
+        center: [location.lat, location.lng],
+        zoom: 14,
+        scrollWheelZoom: true,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      selfMarkerRef.current = L.marker([location.lat, location.lng])
+        .addTo(map)
+        .bindPopup('You are here');
+
+      circleRef.current = L.circle([location.lat, location.lng], {
+        radius: RADIUS_KM * 1000,
+        color: 'blue',
+        fillColor: 'blue',
+        fillOpacity: 0.08,
+        weight: 1,
+      }).addTo(map);
+
+      mapRef.current = map;
+    } catch (err) {
+      console.error('Nearby map init failed:', err);
+    }
+
+    return () => {
+      mountedRef.current = false;
+      try { map?.off(); }    catch (_) {}
+      try { map?.remove(); } catch (_) {}
+      mapRef.current = null;
+      selfMarkerRef.current = null;
+      circleRef.current = null;
+      complaintMarkersRef.current = [];
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pan map + update self marker when location changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !location) return;
+    try {
+      map.setView([location.lat, location.lng], map.getZoom());
+      selfMarkerRef.current?.setLatLng([location.lat, location.lng]);
+      circleRef.current?.setLatLng([location.lat, location.lng]);
+    } catch (_) {}
+  }, [location]);
+
+  // Re-render complaint markers whenever the complaints list changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    try {
+      // Remove old markers
+      complaintMarkersRef.current.forEach(m => { try { m.remove(); } catch (_) {} });
+      complaintMarkersRef.current = [];
+      // Add new markers
+      complaints.forEach(c => {
+        if (!c.location?.lat || !c.location?.lng) return;
+        try {
+          const m = L.marker([c.location.lat, c.location.lng])
+            .addTo(map)
+            .bindPopup(`
+              <div style="max-width:200px">
+                <p style="font-weight:700;font-size:0.875rem;margin-bottom:2px">${c.title}</p>
+                <p style="font-size:0.75rem;color:#64748b;margin-bottom:4px">${c.category}</p>
+                <p style="font-size:0.75rem;font-weight:700;color:#2563eb">${c.votes || 0} votes</p>
+              </div>
+            `);
+          complaintMarkersRef.current.push(m);
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }, [complaints]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="h-full w-full"
+      style={{ position: 'relative', zIndex: 0 }}
+    />
+  );
+}
+
 export function CitizenNearbyMap() {
   const { user } = useAuth();
-  const [enabled, setEnabled] = useState(localStorage.getItem('liveLocationEnabled') === 'true');
+  const [enabled, setEnabled]   = useState(localStorage.getItem('liveLocationEnabled') === 'true');
   const [location, setLocation] = useState(null);
   const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
   const [votingId, setVotingId] = useState(null);
   const watchIdRef = useRef(null);
 
@@ -69,7 +174,6 @@ export function CitizenNearbyMap() {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
         setLocation(prev => {
-          // Only refetch when the citizen has moved a meaningful amount
           if (!prev || Math.abs(prev.lat - lat) > 0.0005 || Math.abs(prev.lng - lng) > 0.0005) {
             fetchNearby(lat, lng);
           }
@@ -96,7 +200,9 @@ export function CitizenNearbyMap() {
   useEffect(() => {
     const unsub = onComplaintUpdated((data) => {
       setComplaints(prev => prev.map(c =>
-        (c._id === data.complaint._id || c.id === data.complaint.id) ? { ...c, ...data.complaint } : c
+        (c._id === data.complaint._id || c.id === data.complaint.id)
+          ? { ...c, ...data.complaint }
+          : c
       ));
     });
     return unsub;
@@ -162,36 +268,10 @@ export function CitizenNearbyMap() {
         </div>
       ) : (
         <>
-          {/* Map */}
+          {/* Imperative map panel */}
           <div className="h-[260px] w-full relative z-0 bg-slate-100">
             {location ? (
-              <MapContainer center={[location.lat, location.lng]} zoom={14} scrollWheelZoom={true} className="h-full w-full">
-                <TileLayer
-                  attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <Marker position={[location.lat, location.lng]}>
-                  <Popup>You are here</Popup>
-                </Marker>
-                <Circle
-                  center={[location.lat, location.lng]}
-                  radius={RADIUS_KM * 1000}
-                  pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.08, weight: 1 }}
-                />
-                {ranked.map((c) => (
-                  c.location?.lat && c.location?.lng ? (
-                    <Marker key={c._id || c.id} position={[c.location.lat, c.location.lng]}>
-                      <Popup>
-                        <div className="max-w-[200px]">
-                          <p className="font-bold text-sm mb-0.5">{c.title}</p>
-                          <p className="text-xs text-slate-600 mb-1">{c.category}</p>
-                          <p className="text-xs font-semibold text-blue-600">{c.votes || 0} votes</p>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ) : null
-                ))}
-              </MapContainer>
+              <NearbyMapPanel location={location} complaints={ranked} />
             ) : (
               <div className="h-full w-full flex flex-col items-center justify-center">
                 <Loader2 className="h-6 w-6 text-blue-500 animate-spin mb-2" />
@@ -206,7 +286,7 @@ export function CitizenNearbyMap() {
             </div>
           )}
 
-          {/* List */}
+          {/* Complaint list */}
           <div className="max-h-[320px] overflow-y-auto p-3 space-y-2.5">
             {loading && complaints.length === 0 ? (
               <div className="py-8 text-center text-xs text-slate-400">Loading nearby complaints…</div>

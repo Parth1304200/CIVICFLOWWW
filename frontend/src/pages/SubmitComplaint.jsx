@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
 import {
-  MapPin, Image as ImageIcon, X, CheckCircle2,
+  Image as ImageIcon, X, CheckCircle2,
   PlusCircle, ClipboardList, AlertTriangle, Wifi, RefreshCw, ThumbsUp, Crosshair
 } from 'lucide-react';
 import { complaintService } from '../services/complaintService';
@@ -355,6 +355,16 @@ export function SubmitComplaint() {
         <p className="mt-1 text-sm text-slate-500">Report a public issue directly to the concerned authority.</p>
       </div>
 
+      {/* Navigation notice */}
+      <div className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
+        </svg>
+        <p className="leading-snug">
+          <span className="font-semibold">To switch pages:</span> Select the page from the sidebar, then <span className="font-semibold">reload</span> the browser (press <kbd className="inline-block bg-blue-100 text-blue-700 text-xs font-mono px-1.5 py-0.5 rounded border border-blue-200 mx-0.5">F5</kbd> or <kbd className="inline-block bg-blue-100 text-blue-700 text-xs font-mono px-1.5 py-0.5 rounded border border-blue-200 mx-0.5">Ctrl+R</kbd>) to navigate there.
+        </p>
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -586,19 +596,12 @@ export function SubmitComplaint() {
                   Live Location is ON — your current position has been pinned automatically. Tap the map to adjust.
                 </p>
               )}
-              <div className="h-[220px] w-full rounded-lg border border-slate-300 overflow-hidden relative z-0">
-                <MapPicker
-                  key={mapKey}
-                  initialPosition={autoLocation}
-                  onLocationSelect={(loc) => setFormData(prev => ({ ...prev, location: loc }))}
-                />
-              </div>
-              {formData.location ? (
-                <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  Location pinned: {formData.location.lat?.toFixed(5)}, {formData.location.lng?.toFixed(5)}
-                </p>
-              ) : (
+              <MapPicker
+                key={mapKey}
+                initialPosition={autoLocation}
+                onLocationSelect={(loc) => setFormData(prev => ({ ...prev, location: loc }))}
+              />
+              {!formData.location && (
                 <p className="text-xs text-amber-600 mt-1">Click on the map to drop a pin and record exact coordinates.</p>
               )}
             </div>

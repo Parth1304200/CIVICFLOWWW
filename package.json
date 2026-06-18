@@ -5,15 +5,14 @@
   "main": "backend/server.js",
   "workspaces": [
     "backend",
-    "frontend",
-    "grievance-dashboard"
+    "frontend"
   ],
   "scripts": {
-    "install:all": "npm install && npm install --workspace=@crm/backend && npm install --workspace=@crm/frontend && npm install --workspace=grievance-dashboard",
+    "install:all": "npm install && npm install --workspace=@crm/backend && npm install --workspace=@crm/frontend && npm install --prefix grievance-dashboard",
     "start": "node backend/server.js",
     "server": "npm run dev --workspace=@crm/backend",
     "client": "npm run dev --workspace=@crm/frontend",
-    "dashboard": "npm run dev --workspace=grievance-dashboard",
+    "dashboard": "npm run dev --prefix grievance-dashboard",
     "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run dashboard\"",
     "build": "npm run build --workspace=@crm/frontend",
     "seed": "npm run seed --workspace=@crm/backend",

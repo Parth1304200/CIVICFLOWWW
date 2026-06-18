@@ -303,10 +303,10 @@ export function CMDashboard() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-200 gap-6">
+      <div className="flex border-b border-slate-200 gap-4 overflow-x-auto scrollbar-none whitespace-nowrap">
         <button
           onClick={() => setActiveTab('nearby')}
-          className={`pb-3 font-bold text-sm transition-all border-b-2 ${
+          className={`flex-shrink-0 pb-3 font-bold text-sm transition-all border-b-2 ${
             activeTab === 'nearby'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -316,7 +316,7 @@ export function CMDashboard() {
         </button>
         <button
           onClick={() => { setActiveTab('oversight'); fetchAllComplaints(); }}
-          className={`pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2 ${
+          className={`flex-shrink-0 pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2 ${
             activeTab === 'oversight'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -327,7 +327,7 @@ export function CMDashboard() {
         </button>
         <button
           onClick={() => { setActiveTab('officers'); fetchOfficers(); }}
-          className={`pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2 ${
+          className={`flex-shrink-0 pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2 ${
             activeTab === 'officers'
               ? 'border-blue-600 text-blue-600'
               : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -341,7 +341,7 @@ export function CMDashboard() {
             setActiveTab('reports');
             fetchAllComplaints();
           }}
-          className={`pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2 ${
+          className={`flex-shrink-0 pb-3 font-bold text-sm transition-all border-b-2 flex items-center gap-2 ${
             activeTab === 'reports'
               ? 'border-red-600 text-red-600'
               : 'border-transparent text-slate-400 hover:text-slate-600'

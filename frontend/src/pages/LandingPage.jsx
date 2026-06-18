@@ -23,7 +23,7 @@ export function LandingPage() {
   const { user } = useAuth();
 
   const handleLodgeComplaint = () => {
-    if (user) navigate('/submit-complaint');
+    if (user) navigate('/submit');
     else navigate('/login');
   };
 

@@ -9,3 +9,6 @@ backend/data/*.json
 
 # Build output
 frontend/dist/
+
+# Not needed in deployment
+grievance-dashboard/

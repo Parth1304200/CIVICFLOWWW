@@ -195,7 +195,7 @@ function AdminComplaintCard({ complaint, onUpdate }) {
                         handleUpdate(opt.value);
                       }
                     }}
-                    className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
+                    className={`flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs font-semibold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full border transition-all ${
                       isDisabled
                         ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
                         : selectedStatus === opt.value
@@ -508,19 +508,19 @@ export function AdminDashboard() {
       {/* Header */}
       <div className="flex items-start justify-between mb-8 flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100">
               <Shield className="h-6 w-6 text-amber-600" />
             </div>
             Admin Operations Hub
           </h1>
-          <p className="mt-1 text-slate-500">Manage all citizen complaints and update their tracking status in real time.</p>
+          <p className="mt-1 text-slate-500 text-xs sm:text-sm">Manage all citizen complaints and update their tracking status in real time.</p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap w-full sm:w-auto justify-between sm:justify-end">
           <button
             onClick={() => fetchAll(true)}
             disabled={refreshing}
-            className="flex items-center gap-2 h-9 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all"
+            className="flex items-center gap-2 h-9 px-4 rounded-xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-all animate-none"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -534,7 +534,7 @@ export function AdminDashboard() {
 
       {/* Stats */}
       {!loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-3 mb-6">
           {[
             { label: 'Total', value: stats.total, color: 'bg-slate-900 text-white' },
             { label: 'Active', value: stats.active, color: 'bg-blue-600 text-white' },
@@ -542,9 +542,9 @@ export function AdminDashboard() {
             { label: 'Emergencies', value: stats.emergencies, color: 'bg-red-600 text-white animate-pulse' },
             { label: 'Performance Points', value: user?.points !== undefined ? user.points : 0, color: 'bg-violet-600 text-white' },
           ].map(s => (
-            <div key={s.label} className={`${s.color} rounded-2xl px-4 py-3 shadow-sm`}>
-              <span className="text-2xl font-black">{s.value}</span>
-              <p className="text-xs font-medium opacity-80 mt-0.5">{s.label}</p>
+            <div key={s.label} className={`${s.color} rounded-xl p-3 sm:rounded-2xl sm:px-4 sm:py-3 shadow-sm`}>
+              <span className="text-xl sm:text-2xl font-black">{s.value}</span>
+              <p className="text-[10px] sm:text-xs font-medium opacity-80 mt-0.5">{s.label}</p>
             </div>
           ))}
         </div>

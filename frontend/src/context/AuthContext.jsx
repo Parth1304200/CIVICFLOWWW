@@ -49,24 +49,38 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ── Build merged user object from Firebase + backend data ──────────────────
-  const buildUser = (firebaseUser, backendUser) => ({
-    ...firebaseUser,
-    uid: firebaseUser.uid,
-    email: firebaseUser.email,
-    role: backendUser?.role || localStorage.getItem('role') || 'citizen',
-    // Strict boolean — absence of field means NOT set up
-    isProfileSetup: backendUser?.isProfileSetup === true,
-    name: backendUser?.name || firebaseUser.displayName || 'Citizen',
-    surname: backendUser?.surname || '',
-    address: backendUser?.address || '',
-    gender: backendUser?.gender || '',
-    phone: backendUser?.phone || '',
-    dob: backendUser?.dob || '',
-    photo: backendUser?.photo || '',
-    nagrikId: backendUser?.nagrikId || '',
-    _id: backendUser?._id || backendUser?.id || null,
-    points: backendUser?.points || 0,
-  });
+  const buildUser = (firebaseUser, backendUser) => {
+    // When backendUser is null (sync failed/offline), fall back to the
+    // localStorage-cached isProfileSetup so already-setup citizens don't
+    // get redirected to the setup form on every page load.
+    const cachedSetup = localStorage.getItem('isProfileSetup') === 'true';
+    const isProfileSetup = backendUser
+      ? backendUser.isProfileSetup === true
+      : cachedSetup;
+
+    // Persist a successful setup state so it survives backend-offline sessions
+    if (backendUser?.isProfileSetup === true) {
+      localStorage.setItem('isProfileSetup', 'true');
+    }
+
+    return {
+      ...firebaseUser,
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      role: backendUser?.role || localStorage.getItem('role') || 'citizen',
+      isProfileSetup,
+      name: backendUser?.name || firebaseUser.displayName || 'Citizen',
+      surname: backendUser?.surname || '',
+      address: backendUser?.address || '',
+      gender: backendUser?.gender || '',
+      phone: backendUser?.phone || '',
+      dob: backendUser?.dob || '',
+      photo: backendUser?.photo || '',
+      nagrikId: backendUser?.nagrikId || '',
+      _id: backendUser?._id || backendUser?.id || null,
+      points: backendUser?.points || 0,
+    };
+  };
 
   // ── Firebase auth state listener (page load / token refresh) ───────────────
   useEffect(() => {
@@ -133,6 +147,7 @@ export const AuthProvider = ({ children }) => {
       await authLogout();
       localStorage.removeItem('token');
       localStorage.removeItem('role');
+      localStorage.removeItem('isProfileSetup');
       setUser(null);
     } catch (error) {
       throw error;
@@ -175,6 +190,7 @@ export const AuthProvider = ({ children }) => {
     const updatedUser = result.data.user;
 
     // ✅ IMMEDIATELY update user state — do NOT await Firestore (it can hang)
+    localStorage.setItem('isProfileSetup', 'true');
     setUser((prev) => ({
       ...prev,
       ...updatedUser,

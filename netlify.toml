@@ -1,0 +1,28 @@
+[build]
+  base    = "frontend"
+  command = "npm run build"
+  publish = "frontend/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# ── Proxy /api/* → Render backend ─────────────────────────────────────────────
+[[redirects]]
+  from   = "/api/*"
+  to     = "https://REPLACE_WITH_YOUR_RENDER_URL/api/:splat"
+  status = 200
+  force  = true
+
+# ── Proxy /uploads/* → Render backend ─────────────────────────────────────────
+[[redirects]]
+  from   = "/uploads/*"
+  to     = "https://REPLACE_WITH_YOUR_RENDER_URL/uploads/:splat"
+  status = 200
+  force  = true
+
+# ── React Router SPA fallback — must be LAST ──────────────────────────────────
+# Without this every direct URL (e.g. /dashboard) returns 404 on Netlify.
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
