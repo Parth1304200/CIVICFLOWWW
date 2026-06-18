@@ -108,10 +108,33 @@ const complaintSchema = new mongoose.Schema({
     ref: 'User',
     default: null
   },
+  // Resolution metadata — used by the "Solved Problems" view
+  resolvedAt: {
+    type: Date,
+    default: null
+  },
+  resolverName: {
+    type: String,
+    default: ''
+  },
+  resolverEmail: {
+    type: String,
+    default: ''
+  },
   falseClosureReport: {
     isReported: { type: Boolean, default: false },
     reason: { type: String, default: '' },
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' }
+  },
+  // Community voting — number of citizens who upvoted this complaint
+  votes: {
+    type: Number,
+    default: 0
+  },
+  // User IDs of citizens who have voted (prevents double-voting)
+  voters: {
+    type: [String],
+    default: []
   }
 }, {
   timestamps: true

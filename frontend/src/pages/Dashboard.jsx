@@ -4,9 +4,11 @@ import { ComplaintTable } from '../components/dashboard/ComplaintTable';
 import { complaintService } from '../services/complaintService';
 import { Profile } from '../components/Profile';
 import { CitizenDashboard } from '../components/local/CitizenDashboard';
+import { CitizenNearbyMap } from '../components/local/CitizenNearbyMap';
 import { Button } from '../components/ui/Button';
 import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
+import { onComplaintUpdated, onNewComplaint } from '../services/socketService';
 
 export function Dashboard() {
   const [stats, setStats] = useState({ total: 0, active: 0, resolved: 0 });
@@ -30,6 +32,28 @@ export function Dashboard() {
       }
     };
     fetchData();
+  }, []);
+
+  // Live updates: reflect admin status changes + new complaints without a refresh
+  useEffect(() => {
+    const unsubUpdate = onComplaintUpdated((data) => {
+      setComplaints(prev =>
+        prev.map(c =>
+          (c.id === data.complaint.id || c._id === data.complaint._id)
+            ? { ...c, ...data.complaint }
+            : c
+        )
+      );
+    });
+    const unsubNew = onNewComplaint((data) => {
+      setComplaints(prev =>
+        prev.some(c => c.id === data.complaint.id) ? prev : [data.complaint, ...prev]
+      );
+    });
+    return () => {
+      unsubUpdate();
+      unsubNew();
+    };
   }, []);
 
   return (
@@ -57,12 +81,17 @@ export function Dashboard() {
           <div className="h-96 bg-slate-200 rounded-xl mt-8"></div>
         </div>
       ) : (
-        <>
-          <DashboardCards stats={stats} />
-          <ComplaintTable complaints={complaints} />
-        </>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="lg:col-span-2 space-y-6">
+            <DashboardCards stats={stats} />
+            <ComplaintTable complaints={complaints} />
+          </div>
+          <div className="lg:col-span-1">
+            <CitizenNearbyMap />
+          </div>
+        </div>
       )}
-      
+
       <CitizenDashboard />
     </div>
   );

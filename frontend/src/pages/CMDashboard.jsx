@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MapContainer, TileLayer, Marker, Popup, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import { complaintService } from '../services/complaintService';
-import { MapPin, AlertCircle, Loader2, ShieldAlert, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { MapPin, AlertCircle, Loader2, ShieldAlert, CheckCircle2, XCircle, FileText, ThumbsUp, Globe, Crosshair } from 'lucide-react';
 import { SecureChatWidget } from '../components/local/SecureChatWidget';
+import { sortByPriority, isEmergency } from '../utils/complaintSort';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default Leaflet marker icons in React
@@ -28,11 +29,24 @@ export function CMDashboard() {
   const [location, setLocation] = useState(null);
   
   const [activeTab, setActiveTab] = useState('nearby'); // 'nearby' or 'reports'
+  const [scope, setScope] = useState('nearby'); // 'nearby' (2km) or 'delhi' (all)
   const [processingId, setProcessingId] = useState(null);
 
-  const emergencyCategories = ['Gas Leakage', 'Building Collapse', 'Electrocution', 'Critical Fire'];
-  const emergencyComplaints = complaints.filter(c => emergencyCategories.includes(c.category));
-  const standardComplaints = complaints.filter(c => !emergencyCategories.includes(c.category));
+  const DELHI_CENTER = [28.6139, 77.2090];
+  const RESOLVED_STATUSES = ['resolved', 'Resolved'];
+
+  // Source list depends on the chosen scope
+  const scopedComplaints = scope === 'nearby'
+    ? complaints
+    : allComplaints.filter(c => !RESOLVED_STATUSES.includes(c.status) && c.location?.lat && c.location?.lng);
+
+  // Ranked: emergency first, then most-voted, then newest
+  const rankedComplaints = sortByPriority(scopedComplaints);
+  const emergencyComplaints = rankedComplaints.filter(c => isEmergency(c));
+  const standardComplaints = rankedComplaints.filter(c => !isEmergency(c));
+
+  const mapCenter = scope === 'nearby' && location ? [location.lat, location.lng] : DELHI_CENTER;
+  const mapZoom = scope === 'nearby' ? 14 : 11;
 
   // Load nearby complaints based on GPS location
   useEffect(() => {
@@ -155,15 +169,39 @@ export function CMDashboard() {
 
       {/* Tab Contents */}
       {activeTab === 'nearby' ? (
-        loading ? (
+        <div className="space-y-4">
+          {/* Scope Filter: 2km radius vs all of Delhi */}
+          <div className="inline-flex bg-slate-100 p-1 rounded-xl gap-1">
+            <button
+              onClick={() => setScope('nearby')}
+              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-all ${
+                scope === 'nearby' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Crosshair className="h-3.5 w-3.5" />
+              Within 2km
+            </button>
+            <button
+              onClick={() => setScope('delhi')}
+              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-lg transition-all ${
+                scope === 'delhi' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              All of Delhi
+            </button>
+          </div>
+
+          {(scope === 'nearby' && loading) ? (
           <div className="flex flex-col items-center justify-center py-20 bg-white border border-slate-200 rounded-2xl shadow-sm">
             <Loader2 className="h-10 w-10 text-blue-600 animate-spin mb-4" />
             <p className="text-slate-500 font-medium">Detecting location and fetching data...</p>
           </div>
-        ) : error ? (
+        ) : (scope === 'nearby' && error) ? (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-6 rounded-xl flex flex-col items-center justify-center text-center">
             <AlertCircle className="h-8 w-8 mb-2" />
             <p className="font-semibold">{error}</p>
+            <p className="text-xs mt-1 text-red-500">Switch to "All of Delhi" to view every complaint without location access.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -175,59 +213,69 @@ export function CMDashboard() {
               className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col"
             >
               <div className="p-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                <h2 className="font-bold text-slate-800 text-sm">2km Radius Map</h2>
+                <h2 className="font-bold text-slate-800 text-sm">
+                  {scope === 'nearby' ? '2km Radius Map' : 'Delhi-wide Map'}
+                </h2>
                 <span className="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">
-                  {complaints.length} active issues
+                  {rankedComplaints.length} active issues
                 </span>
               </div>
               <div className="h-[500px] w-full relative z-0">
-                {location && (
-                  <MapContainer
-                    center={[location.lat, location.lng]}
-                    zoom={14}
-                    scrollWheelZoom={true}
-                    className="h-full w-full"
-                  >
-                    <TileLayer
-                      attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
-                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    />
-                    
-                    {/* CM Location Marker */}
-                    <Marker position={[location.lat, location.lng]}>
-                      <Popup>
-                        <div className="text-center">
-                          <p className="font-bold text-blue-700">Your Location</p>
-                          <p className="text-xs text-slate-500">Center of 2km radius</p>
-                        </div>
-                      </Popup>
-                    </Marker>
+                <MapContainer
+                  key={scope}
+                  center={mapCenter}
+                  zoom={mapZoom}
+                  scrollWheelZoom={true}
+                  className="h-full w-full"
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
 
-                    {/* 2km Radius Circle */}
-                    <Circle
-                      center={[location.lat, location.lng]}
-                      radius={2000} // in meters
-                      pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.1, weight: 1 }}
-                    />
+                  {/* CM Location Marker + 2km radius (only in nearby scope) */}
+                  {scope === 'nearby' && location && (
+                    <>
+                      <Marker position={[location.lat, location.lng]}>
+                        <Popup>
+                          <div className="text-center">
+                            <p className="font-bold text-blue-700">Your Location</p>
+                            <p className="text-xs text-slate-500">Center of 2km radius</p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                      <Circle
+                        center={[location.lat, location.lng]}
+                        radius={2000}
+                        pathOptions={{ color: 'blue', fillColor: 'blue', fillOpacity: 0.1, weight: 1 }}
+                      />
+                    </>
+                  )}
 
-                    {/* Complaints Markers */}
-                    {complaints.map((c) => (
-                      c.location?.lat && c.location?.lng ? (
-                        <Marker key={c._id || c.id} position={[c.location.lat, c.location.lng]}>
-                          <Popup>
-                            <div className="max-w-[200px]">
-                              <p className="font-bold text-sm mb-1">{c.title}</p>
-                              <p className="text-xs text-slate-600 mb-2">{c.category}</p>
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                                {c.status}
+                  {/* Complaint Markers */}
+                  {rankedComplaints.map((c) => (
+                    c.location?.lat && c.location?.lng ? (
+                      <Marker key={c._id || c.id} position={[c.location.lat, c.location.lng]}>
+                        <Popup>
+                          <div className="max-w-[220px]">
+                            {c.image && (
+                              <img src={c.image} alt="Evidence" className="w-full h-24 object-cover rounded-md mb-2 border border-slate-200" />
+                            )}
+                            <p className="font-bold text-sm mb-0.5">{c.title}</p>
+                            <p className="text-xs text-slate-600 mb-1">{c.category}{c.landmark ? ` • ${c.landmark}` : ''}</p>
+                            <p className="text-xs text-slate-500 mb-2 line-clamp-3">{c.description}</p>
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isEmergency(c) ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {isEmergency(c) ? 'EMERGENCY' : c.status}
                               </span>
+                              <span className="text-[11px] font-bold text-blue-600 flex items-center gap-1">👍 {c.votes || 0}</span>
                             </div>
-                          </Popup>
-                        </Marker>
-                      ) : null
-                    ))}
-                  </MapContainer>
-                )}
+                          </div>
+                        </Popup>
+                      </Marker>
+                    ) : null
+                  ))}
+                </MapContainer>
               </div>
             </motion.div>
 
@@ -247,9 +295,11 @@ export function CMDashboard() {
                 )}
               </div>
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {complaints.length === 0 ? (
+                {rankedComplaints.length === 0 ? (
                   <div className="text-center py-10">
-                    <p className="text-sm text-slate-500">No active complaints found within 2km.</p>
+                    <p className="text-sm text-slate-500">
+                      {scope === 'nearby' ? 'No active complaints found within 2km.' : 'No active complaints found in Delhi.'}
+                    </p>
                   </div>
                 ) : (
                   <>
@@ -264,11 +314,14 @@ export function CMDashboard() {
                             {c.category}
                           </span>
                         </div>
+                        {c.image && (
+                          <img src={c.image} alt="Evidence" className="w-full h-24 object-cover rounded-lg mb-2 border border-red-200" />
+                        )}
                         <p className="text-xs text-red-700/80 line-clamp-2 mb-3 font-medium">{c.description}</p>
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-red-500">{new Date(c.createdAt || c.date).toLocaleDateString()}</span>
-                          <span className="font-bold text-red-700 uppercase tracking-wide">
-                            EMERGENCY
+                          <span className="font-bold text-red-700 uppercase tracking-wide">EMERGENCY</span>
+                          <span className="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                            <ThumbsUp className="h-3 w-3" /> {c.votes || 0}
                           </span>
                         </div>
                       </div>
@@ -282,11 +335,14 @@ export function CMDashboard() {
                             {c.category}
                           </span>
                         </div>
+                        {c.image && (
+                          <img src={c.image} alt="Evidence" className="w-full h-24 object-cover rounded-lg mb-2 border border-slate-200" />
+                        )}
                         <p className="text-xs text-slate-500 line-clamp-2 mb-3">{c.description}</p>
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400">{new Date(c.createdAt || c.date).toLocaleDateString()}</span>
-                          <span className="font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
-                            {c.status}
+                          <span className="font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded">{c.status}</span>
+                          <span className="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                            <ThumbsUp className="h-3 w-3" /> {c.votes || 0}
                           </span>
                         </div>
                       </div>
@@ -296,7 +352,8 @@ export function CMDashboard() {
               </div>
             </motion.div>
           </div>
-        )
+        )}
+        </div>
       ) : (
         /* False Closure Tab */
         <div className="space-y-6">

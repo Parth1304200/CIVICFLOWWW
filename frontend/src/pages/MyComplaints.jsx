@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { complaintService } from '../services/complaintService';
 import { StatusTimeline } from '../components/local/StatusTimeline';
+import { onComplaintUpdated } from '../services/socketService';
 import { useNavigate } from 'react-router-dom';
-import { PlusCircle, ChevronDown, ChevronUp, MapPin, Calendar, Tag, FileText } from 'lucide-react';
+import { PlusCircle, ChevronDown, ChevronUp, MapPin, Calendar, Tag, FileText, ThumbsUp } from 'lucide-react';
 
 const statusColors = {
   initiated:             'bg-blue-50 text-blue-700 border-blue-200',
@@ -77,6 +78,10 @@ function ComplaintTracker({ complaint }) {
           <span className="flex items-center gap-1.5 text-xs text-slate-500">
             <Calendar className="h-3.5 w-3.5 text-slate-400" />
             {complaint.date}
+          </span>
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-600" title="Community votes supporting your complaint">
+            <ThumbsUp className="h-3.5 w-3.5" />
+            {complaint.votes || 0} votes
           </span>
           {complaint.location && typeof complaint.location === 'object' && (
             <span className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -191,6 +196,18 @@ export function MyComplaints() {
       }
     };
     fetchData();
+  }, []);
+
+  // Live tracking — apply admin status/timeline updates in real time
+  useEffect(() => {
+    const unsub = onComplaintUpdated((data) => {
+      setComplaints(prev =>
+        prev.map(c =>
+          (c.id === data.complaint.id || c._id === data.complaint._id) ? { ...c, ...data.complaint } : c
+        )
+      );
+    });
+    return unsub;
   }, []);
 
   const activeCount = complaints.filter(c =>

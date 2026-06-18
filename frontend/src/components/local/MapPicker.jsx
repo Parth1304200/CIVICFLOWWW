@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
@@ -18,6 +18,17 @@ L.Icon.Default.mergeOptions({
 // Delhi Bounds coordinates
 const DELHI_BOUNDS = L.latLngBounds([28.40, 76.80], [28.89, 77.35]);
 
+// Pans the map to a coordinate whenever it changes (used for live-location auto-fill)
+function RecenterOnPosition({ position }) {
+  const map = useMap();
+  useEffect(() => {
+    if (position) {
+      map.setView([position.lat, position.lng], Math.max(map.getZoom(), 15));
+    }
+  }, [position, map]);
+  return null;
+}
+
 function LocationMarker({ position, setPosition, setError }) {
   useMapEvents({
     click(e) {
@@ -35,8 +46,8 @@ function LocationMarker({ position, setPosition, setError }) {
   );
 }
 
-export function MapPicker({ onLocationSelect }) {
-  const [position, setPosition] = useState(null);
+export function MapPicker({ onLocationSelect, initialPosition = null }) {
+  const [position, setPosition] = useState(initialPosition);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -44,6 +55,13 @@ export function MapPicker({ onLocationSelect }) {
       onLocationSelect(position);
     }
   }, [position, onLocationSelect]);
+
+  // Sync an externally supplied position (e.g. live location detected after mount)
+  useEffect(() => {
+    if (initialPosition) {
+      setPosition(initialPosition);
+    }
+  }, [initialPosition]);
 
   // Center on Delhi
   const defaultCenter = [28.6139, 77.2090];
@@ -81,19 +99,20 @@ export function MapPicker({ onLocationSelect }) {
         </button>
       </div>
       <div className="h-64 w-full rounded-xl overflow-hidden border border-slate-300 shadow-sm relative z-0">
-        <MapContainer 
-          center={defaultCenter} 
-          zoom={11} 
+        <MapContainer
+          center={position ? [position.lat, position.lng] : defaultCenter}
+          zoom={position ? 15 : 11}
           minZoom={10}
           maxBounds={DELHI_BOUNDS}
           maxBoundsViscosity={1.0}
-          scrollWheelZoom={true} 
+          scrollWheelZoom={true}
           className="h-full w-full"
         >
           <TileLayer
             attribution='&copy; <a href="https://osm.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+          <RecenterOnPosition position={position} />
           <LocationMarker position={position} setPosition={setPosition} setError={setError} />
         </MapContainer>
       </div>

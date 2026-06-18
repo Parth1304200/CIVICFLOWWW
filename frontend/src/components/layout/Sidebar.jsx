@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FileText, PlusCircle, LogOut, Radio, User, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, FileText, PlusCircle, LogOut, Radio, User, HelpCircle, CheckCircle2 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { LogoutModal } from '../ui/LogoutModal';
 import { useAuth } from '../../context/AuthContext';
@@ -12,7 +12,8 @@ export function Sidebar({ isOpen, setIsOpen }) {
   
   const navItems = role === 'admin' ? [
     { name: 'Admin Dashboard', path: '/admin', icon: LayoutDashboard },
-    { name: 'Hotspot Monitor', path: '/hotspot-dashboard', icon: Radio }
+    { name: 'Hotspot Monitor', path: '/hotspot-dashboard', icon: Radio },
+    { name: 'Solved Problems', path: '/solved-problems', icon: CheckCircle2 }
   ] : role === 'cm' ? [
     { name: 'CM Dashboard', path: '/cm-dashboard', icon: LayoutDashboard }
   ] : [

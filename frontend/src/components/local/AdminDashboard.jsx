@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Navigate } from 'react-router-dom';
-import { Search, Filter, Shield, RefreshCw, CheckCircle2, Clock, Wrench, AlertCircle, Loader2, PackageCheck, ChevronDown, ChevronUp, MapPin, Calendar, Tag, Image as ImageIcon, FileText, Brain, Radio } from 'lucide-react';
+import { Search, Filter, Shield, RefreshCw, CheckCircle2, Clock, Wrench, AlertCircle, Loader2, PackageCheck, ChevronDown, ChevronUp, MapPin, Calendar, Tag, Image as ImageIcon, FileText, Brain, Radio, ThumbsUp } from 'lucide-react';
 import { complaintService } from '../../services/complaintService';
 import { StatusTimeline } from './StatusTimeline';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,36 +9,42 @@ import { onNewComplaint, onHotspotAlert, onComplaintUpdated } from '../../servic
 import { SecureChatWidget } from './SecureChatWidget';
 
 const STATUS_OPTIONS = [
-  { value: 'initiated',            label: 'Initiated',       icon: AlertCircle,  color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-200'   },
-  { value: 'under_review',         label: 'Under Review',    icon: Clock,        color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-200' },
-  { value: 'construction_ongoing', label: 'Work in Progress',icon: Wrench,       color: 'text-amber-600',  bg: 'bg-amber-50',  border: 'border-amber-200'  },
-  { value: 'fixing_issues',        label: 'Fixing Issues',   icon: Loader2,      color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
-  { value: 'resolved',             label: 'Resolved',        icon: PackageCheck, color: 'text-emerald-600',bg: 'bg-emerald-50',border: 'border-emerald-200' },
+  { value: 'initiated', label: 'Initiated', icon: AlertCircle, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200' },
+  { value: 'under_review', label: 'Under Review', icon: Clock, color: 'text-violet-600', bg: 'bg-violet-50', border: 'border-violet-200' },
+  { value: 'construction_ongoing', label: 'Work in Progress', icon: Wrench, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-200' },
+  { value: 'fixing_issues', label: 'Fixing Issues', icon: Loader2, color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200' },
+  { value: 'resolved', label: 'Resolved', icon: PackageCheck, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-200' },
 ];
 
 const statusColorBadge = {
-  initiated:            'bg-blue-50 text-blue-700 border-blue-200',
-  under_review:         'bg-violet-50 text-violet-700 border-violet-200',
+  initiated: 'bg-blue-50 text-blue-700 border-blue-200',
+  under_review: 'bg-violet-50 text-violet-700 border-violet-200',
   construction_ongoing: 'bg-amber-50 text-amber-700 border-amber-200',
-  fixing_issues:        'bg-orange-50 text-orange-700 border-orange-200',
-  resolved:             'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Pending:              'bg-slate-50 text-slate-700 border-slate-200',
-  'In Progress':        'bg-blue-50 text-blue-700 border-blue-200',
-  Escalated:            'bg-red-50 text-red-700 border-red-200',
-  Resolved:             'bg-emerald-50 text-emerald-700 border-emerald-200',
+  fixing_issues: 'bg-orange-50 text-orange-700 border-orange-200',
+  resolved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  Pending: 'bg-slate-50 text-slate-700 border-slate-200',
+  'In Progress': 'bg-blue-50 text-blue-700 border-blue-200',
+  Escalated: 'bg-red-50 text-red-700 border-red-200',
+  Resolved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
 };
 const statusLabel = {
-  initiated:            'Initiated',
-  under_review:         'Under Review',
+  initiated: 'Initiated',
+  under_review: 'Under Review',
   construction_ongoing: 'Work in Progress',
-  fixing_issues:        'Fixing Issues',
-  resolved:             'Resolved',
+  fixing_issues: 'Fixing Issues',
+  resolved: 'Resolved',
 };
 
 // Admin complaint card with real-time update panel
 function AdminComplaintCard({ complaint, onUpdate }) {
+  const steps = ['initiated', 'under_review', 'construction_ongoing', 'fixing_issues', 'resolved'];
+  const currentStepIdx = steps.indexOf(complaint.status);
+  const nextStatus = currentStepIdx >= 0 && currentStepIdx < steps.length - 1
+    ? steps[currentStepIdx + 1]
+    : complaint.status;
+
   const [expanded, setExpanded] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState(complaint.status);
+  const [selectedStatus, setSelectedStatus] = useState(nextStatus);
   const [message, setMessage] = useState('');
   const [proofFile, setProofFile] = useState(null);
   const [proofPreview, setProofPreview] = useState('');
@@ -47,7 +53,6 @@ function AdminComplaintCard({ complaint, onUpdate }) {
 
   const isResolved = complaint.status === 'resolved' || complaint.status === 'Resolved';
   const badgeClass = statusColorBadge[complaint.status] || 'bg-slate-50 text-slate-700 border-slate-200';
-  const steps = ['initiated','under_review','construction_ongoing','fixing_issues','resolved'];
   const progressPct = (() => {
     const idx = steps.indexOf(complaint.status);
     return idx >= 0 ? ((idx + 1) / steps.length) * 100 : 10;
@@ -63,17 +68,24 @@ function AdminComplaintCard({ complaint, onUpdate }) {
     }
   };
 
-  const handleUpdate = async () => {
-    if (selectedStatus === 'resolved' && !proofPreview && !complaint.proofImage) {
+  const handleUpdate = async (statusToApply = selectedStatus) => {
+    // Guard: never allow moving back to an earlier stage.
+    const targetIdx = steps.indexOf(statusToApply);
+    if (targetIdx !== -1 && currentStepIdx !== -1 && targetIdx < currentStepIdx) {
+      return;
+    }
+    if (statusToApply === 'resolved' && !proofPreview && !complaint.proofImage) {
       alert('A proof image is required to mark this complaint as resolved.');
       return;
     }
     setUpdating(true);
     try {
-      await onUpdate(complaint.id, selectedStatus, message || `Status updated to: ${statusLabel[selectedStatus] || selectedStatus}`, proofPreview);
+      await onUpdate(complaint.id, statusToApply, message || `Status updated to: ${statusLabel[statusToApply] || statusToApply}`, proofPreview);
       setMessage('');
       setProofFile(null);
       setProofPreview('');
+      // Advance the selection to the next forward step (never back to a past one)
+      setSelectedStatus(targetIdx >= 0 && targetIdx < steps.length - 1 ? steps[targetIdx + 1] : statusToApply);
       setJustUpdated(true);
       setTimeout(() => setJustUpdated(false), 3000);
     } catch (e) {
@@ -90,9 +102,8 @@ function AdminComplaintCard({ complaint, onUpdate }) {
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-300 relative ${
-        justUpdated ? 'border-emerald-300 shadow-emerald-100' : isEmergency ? 'border-2 border-red-400 bg-red-50/30' : 'border-slate-200 hover:shadow-md'
-      }`}
+      className={`bg-white rounded-2xl border shadow-sm overflow-hidden transition-all duration-300 relative ${justUpdated ? 'border-emerald-300 shadow-emerald-100' : isEmergency ? 'border-2 border-red-400 bg-red-50/30' : 'border-slate-200 hover:shadow-md'
+        }`}
     >
       {isEmergency && (
         <div className="absolute top-0 right-0 bg-red-600 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg uppercase tracking-wider animate-pulse">
@@ -107,6 +118,10 @@ function AdminComplaintCard({ complaint, onUpdate }) {
               <span className="text-xs font-mono text-slate-400 font-medium">#{complaint.id}</span>
               <span className={`text-[11px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border ${badgeClass}`}>
                 {statusLabel[complaint.status] || complaint.status}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200" title="Community votes">
+                <ThumbsUp className="h-3 w-3" />
+                {complaint.votes || 0}
               </span>
               {justUpdated && (
                 <motion.span
@@ -156,26 +171,37 @@ function AdminComplaintCard({ complaint, onUpdate }) {
           </div>
         </div>
 
-        {/* Quick update buttons (always visible) */}
-        {!isResolved && (
+        {/* Quick update buttons — only statuses AHEAD of the current one are clickable */}
+        {currentStepIdx < steps.length - 1 && (
           <div className="mt-4">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Quick Update →</p>
             <div className="flex flex-wrap gap-2">
-              {STATUS_OPTIONS.filter(s => s.value !== complaint.status).map(opt => {
+              {STATUS_OPTIONS.map(opt => {
                 const Icon = opt.icon;
+                const targetIdx = steps.indexOf(opt.value);
+                const isDisabled = targetIdx <= currentStepIdx;
                 return (
                   <button
                     key={opt.value}
+                    disabled={isDisabled || updating}
                     onClick={() => {
+                      if (isDisabled || updating) return;
                       setSelectedStatus(opt.value);
-                      if (!expanded) setExpanded(true);
-                      // scroll into view after a tick
+                      // 'resolved' needs a proof image, so open the panel to upload it;
+                      // any other forward status is applied immediately on click.
+                      if (opt.value === 'resolved') {
+                        if (!expanded) setExpanded(true);
+                      } else {
+                        handleUpdate(opt.value);
+                      }
                     }}
                     className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all ${
-                      selectedStatus === opt.value
-                        ? `${opt.bg} ${opt.color} ${opt.border} ring-2 ring-offset-1 ring-current`
-                        : `bg-white text-slate-600 border-slate-200 hover:${opt.bg} hover:${opt.color}`
-                    }`}
+                      isDisabled
+                        ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed'
+                        : selectedStatus === opt.value
+                          ? `${opt.bg} ${opt.color} ${opt.border} ring-2 ring-offset-1 ring-current`
+                          : `bg-white text-slate-600 border-slate-200 hover:${opt.bg} hover:${opt.color}`
+                      }`}
                   >
                     <Icon className="h-3 w-3" />
                     {opt.label}
@@ -242,30 +268,35 @@ function AdminComplaintCard({ complaint, onUpdate }) {
               {/* Status Timeline */}
               <StatusTimeline updates={complaint.updates || []} currentStatus={complaint.status} />
 
-              {/* Admin Update Panel */}
-              {!isResolved && (
+              {/* Admin Update Panel — available in every state so status can be reverted */}
+              {(
                 <div className="mt-6 p-4 bg-gradient-to-br from-slate-50 to-white rounded-2xl border border-slate-200 shadow-inner">
                   <h4 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <Shield className="h-4 w-4 text-amber-600" />
                     Update Status
                   </h4>
 
-                  {/* Status selector buttons */}
+                  {/* Status selector buttons — only forward statuses are selectable */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
                     {STATUS_OPTIONS.map(opt => {
                       const Icon = opt.icon;
                       const isSelected = selectedStatus === opt.value;
+                      const targetIdx = steps.indexOf(opt.value);
+                      const isDisabled = targetIdx <= currentStepIdx;
                       return (
                         <button
                           key={opt.value}
-                          onClick={() => setSelectedStatus(opt.value)}
+                          disabled={isDisabled}
+                          onClick={() => { if (!isDisabled) setSelectedStatus(opt.value); }}
                           className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-semibold transition-all ${
-                            isSelected
-                              ? `${opt.bg} ${opt.color} ${opt.border} ring-2 ring-current shadow-sm`
-                              : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                          }`}
+                            isDisabled
+                              ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed opacity-50'
+                              : isSelected
+                                ? `${opt.bg} ${opt.color} ${opt.border} ring-2 ring-current shadow-sm`
+                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                            }`}
                         >
-                          <Icon className={`h-5 w-5 ${isSelected ? opt.color : 'text-slate-400'} ${opt.value === 'fixing_issues' && isSelected ? 'animate-spin' : ''}`} />
+                          <Icon className={`h-5 w-5 ${isDisabled ? 'text-slate-300' : isSelected ? opt.color : 'text-slate-400'} ${opt.value === 'fixing_issues' && isSelected && !isDisabled ? 'animate-spin' : ''}`} />
                           {opt.label}
                         </button>
                       );
@@ -307,7 +338,7 @@ function AdminComplaintCard({ complaint, onUpdate }) {
 
                   {/* Apply button */}
                   <button
-                    onClick={handleUpdate}
+                    onClick={() => handleUpdate()}
                     disabled={updating}
                     className="mt-4 w-full h-11 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 disabled:opacity-60 text-white text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2"
                   >
@@ -357,7 +388,7 @@ export function AdminDashboard() {
       if (typeof fetchMe === 'function') {
         await fetchMe();
       }
-    } catch(e) {
+    } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
@@ -409,7 +440,8 @@ export function AdminDashboard() {
     }
   };
 
-  let displayComplaints = [...complaints];
+  // Resolved complaints move to the "Solved Problems" view and are hidden here
+  let displayComplaints = complaints.filter(c => !['resolved', 'Resolved'].includes(c.status));
   if (filterStatus !== 'all') {
     displayComplaints = displayComplaints.filter(c => c.status === filterStatus);
   }
@@ -421,7 +453,11 @@ export function AdminDashboard() {
       c.id?.toLowerCase().includes(q)
     );
   }
+  // Rank by votes first (most-voted to top), then by chosen date order
   displayComplaints.sort((a, b) => {
+    const aVotes = a.votes || 0;
+    const bVotes = b.votes || 0;
+    if (aVotes !== bVotes) return bVotes - aVotes;
     const aDate = new Date(a.date || 0);
     const bDate = new Date(b.date || 0);
     return sortOrder === 'newest' ? bDate - aDate : aDate - bDate;
@@ -433,9 +469,9 @@ export function AdminDashboard() {
 
   const stats = {
     total: complaints.length,
-    active: complaints.filter(c => !['resolved','Resolved'].includes(c.status)).length,
-    resolved: complaints.filter(c => ['resolved','Resolved'].includes(c.status)).length,
-    emergencies: complaints.filter(c => emergencyCategories.includes(c.category) && !['resolved','Resolved'].includes(c.status)).length
+    active: complaints.filter(c => !['resolved', 'Resolved'].includes(c.status)).length,
+    resolved: complaints.filter(c => ['resolved', 'Resolved'].includes(c.status)).length,
+    emergencies: complaints.filter(c => emergencyCategories.includes(c.category) && !['resolved', 'Resolved'].includes(c.status)).length
   };
 
   const myFlaggedComplaints = complaints.filter(c =>
@@ -500,8 +536,8 @@ export function AdminDashboard() {
       {!loading && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
           {[
-            { label: 'Total', value: stats.total,    color: 'bg-slate-900 text-white' },
-            { label: 'Active', value: stats.active,  color: 'bg-blue-600 text-white' },
+            { label: 'Total', value: stats.total, color: 'bg-slate-900 text-white' },
+            { label: 'Active', value: stats.active, color: 'bg-blue-600 text-white' },
             { label: 'Resolved', value: stats.resolved, color: 'bg-emerald-600 text-white' },
             { label: 'Emergencies', value: stats.emergencies, color: 'bg-red-600 text-white animate-pulse' },
             { label: 'Performance Points', value: user?.points !== undefined ? user.points : 0, color: 'bg-violet-600 text-white' },
@@ -526,7 +562,7 @@ export function AdminDashboard() {
             <ul className="mt-2 space-y-1.5 border-t border-amber-200/50 pt-2">
               {myFlaggedComplaints.map(c => (
                 <li key={c.id} className="text-xs text-amber-900 font-medium list-disc list-inside">
-                  <span className="font-mono bg-amber-100 px-1 py-0.5 rounded font-bold">#{c.id}</span> - "{c.title}" 
+                  <span className="font-mono bg-amber-100 px-1 py-0.5 rounded font-bold">#{c.id}</span> - "{c.title}"
                   <span className="text-amber-700 italic ml-1">(Reason: {c.falseClosureReport?.reason})</span>
                 </li>
               ))}
@@ -556,12 +592,11 @@ export function AdminDashboard() {
               onChange={e => setFilterStatus(e.target.value)}
               className="border border-slate-200 rounded-lg py-1.5 px-2 text-xs font-medium focus:ring-2 focus:ring-blue-500 outline-none"
             >
-              <option value="all">All ({complaints.length})</option>
+              <option value="all">All ({stats.active})</option>
               <option value="initiated">Initiated</option>
               <option value="under_review">Under Review</option>
               <option value="construction_ongoing">Work in Progress</option>
               <option value="fixing_issues">Fixing Issues</option>
-              <option value="resolved">Resolved</option>
             </select>
           </div>
           <select
@@ -604,7 +639,7 @@ export function AdminDashboard() {
                 </div>
               </div>
             )}
-            
+
             {standardComplaints.length > 0 && (
               <div>
                 {emergencyComplaints.length > 0 && (

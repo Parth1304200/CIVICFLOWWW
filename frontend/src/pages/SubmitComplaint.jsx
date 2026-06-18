@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '../components/ui/Input';
 import {
   MapPin, Image as ImageIcon, X, CheckCircle2,
-  PlusCircle, ClipboardList, AlertTriangle, Wifi, RefreshCw
+  PlusCircle, ClipboardList, AlertTriangle, Wifi, RefreshCw, ThumbsUp, Crosshair
 } from 'lucide-react';
 import { complaintService } from '../services/complaintService';
 import { MapPicker } from '../components/local/MapPicker';
@@ -172,6 +172,28 @@ export function SubmitComplaint() {
   const [preview, setPreview] = useState('');
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [mapKey, setMapKey] = useState(0); // used to remount MapPicker on reset
+  const [autoLocation, setAutoLocation] = useState(null); // live location auto-fill
+  const [liveLocationOn, setLiveLocationOn] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState(null); // { message, existingComplaint, ownComplaint }
+  const [voting, setVoting] = useState(false);
+  const [voteDone, setVoteDone] = useState(false);
+
+  // If the citizen enabled "Live Location" on their dashboard, auto-detect and
+  // pin their current position when the complaint form opens.
+  useEffect(() => {
+    const enabled = localStorage.getItem('liveLocationEnabled') === 'true';
+    setLiveLocationOn(enabled);
+    if (enabled && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setAutoLocation(loc);
+          setFormData(prev => prev.location ? prev : { ...prev, location: loc });
+        },
+        (err) => console.warn('Live location auto-fill failed:', err)
+      );
+    }
+  }, []);
 
   const resetForm = () => {
     setFormData(EMPTY_FORM);
@@ -180,13 +202,29 @@ export function SubmitComplaint() {
     setError('');
     setSubmitted(false);
     setSubmittedTitle('');
+    setDuplicateInfo(null);
+    setVoteDone(false);
     setMapKey(k => k + 1);
+  };
+
+  const handleVoteExisting = async () => {
+    if (!duplicateInfo?.existingComplaint) return;
+    setVoting(true);
+    try {
+      await complaintService.voteComplaint(duplicateInfo.existingComplaint._id || duplicateInfo.existingComplaint.id);
+      setVoteDone(true);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to register your vote. Please try again.');
+    } finally {
+      setVoting(false);
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setDuplicateInfo(null);
     try {
       if (!file) {
         setError('A geotagged photo is mandatory for all submissions.');
@@ -209,8 +247,8 @@ export function SubmitComplaint() {
         }
 
         const distance = getDistance(exifData.latitude, exifData.longitude, formData.location.lat, formData.location.lng);
-        if (distance > 500) {
-          setError(`The photo's location is ${Math.round(distance)} meters away from the pinned map location. They must be within 500 meters of each other.`);
+        if (distance > 100) {
+          setError(`The geotagged photo's location is ${Math.round(distance)} meters away from the selected address/pin. The photo must be taken within 100 meters of the complaint location.`);
           setLoading(false);
           return;
         }
@@ -254,7 +292,13 @@ export function SubmitComplaint() {
       const status = err.response?.status;
       const msg = err.response?.data?.message || err.message || 'Failed to submit complaint';
 
-      if (status === 502 || status === 503 || err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
+      if (status === 409 && err.response?.data?.duplicate) {
+        setDuplicateInfo({
+          message: msg,
+          existingComplaint: err.response.data.existingComplaint,
+          ownComplaint: err.response.data.ownComplaint,
+        });
+      } else if (status === 502 || status === 503 || err.message === 'Network Error' || err.code === 'ERR_NETWORK') {
         setError('502 — Server Unreachable. The backend is not running or the database is unavailable.');
       } else if (status === 401) {
         setError('401 — You are not logged in. Please log in again to submit.');
@@ -323,6 +367,55 @@ export function SubmitComplaint() {
             error={error}
             onRetry={() => setError('')}
           />
+        )}
+
+        {/* Duplicate Complaint Banner */}
+        {duplicateInfo && (
+          <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+            <div className="flex gap-3 items-start">
+              <AlertTriangle className="h-5 w-5 flex-shrink-0 mt-0.5 text-amber-600" />
+              <div className="flex-1">
+                <p className="font-bold">Complaint Already Registered</p>
+                <p className="text-xs mt-1 opacity-90">{duplicateInfo.message}</p>
+                {duplicateInfo.existingComplaint && (
+                  <div className="mt-3 rounded-lg bg-white border border-amber-200 p-3">
+                    <p className="text-xs font-mono text-slate-400">#{duplicateInfo.existingComplaint.id}</p>
+                    <p className="font-semibold text-slate-800 text-sm">{duplicateInfo.existingComplaint.title}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{duplicateInfo.existingComplaint.category}</p>
+                    <div className="flex items-center gap-1.5 mt-2 text-xs font-bold text-blue-600">
+                      <ThumbsUp className="h-3.5 w-3.5" />
+                      {duplicateInfo.existingComplaint.votes || 0} votes
+                    </div>
+                  </div>
+                )}
+                {!duplicateInfo.ownComplaint && (
+                  voteDone ? (
+                    <p className="mt-3 flex items-center gap-1.5 text-emerald-700 font-semibold text-sm">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Your vote has been recorded. Thank you!
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleVoteExisting}
+                      disabled={voting}
+                      className="mt-3 inline-flex items-center gap-2 h-9 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold shadow-sm transition-all"
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                      {voting ? 'Voting…' : 'Vote for this complaint instead'}
+                    </button>
+                  )
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setDuplicateInfo(null)}
+                className="flex-shrink-0 text-amber-500 hover:text-amber-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -487,9 +580,16 @@ export function SubmitComplaint() {
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Pinpoint Location on Map
               </label>
+              {liveLocationOn && (
+                <p className="text-xs text-blue-600 mb-1.5 flex items-center gap-1 font-medium">
+                  <Crosshair className="h-3 w-3" />
+                  Live Location is ON — your current position has been pinned automatically. Tap the map to adjust.
+                </p>
+              )}
               <div className="h-[220px] w-full rounded-lg border border-slate-300 overflow-hidden relative z-0">
                 <MapPicker
                   key={mapKey}
+                  initialPosition={autoLocation}
                   onLocationSelect={(loc) => setFormData(prev => ({ ...prev, location: loc }))}
                 />
               </div>

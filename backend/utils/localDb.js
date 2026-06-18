@@ -97,6 +97,8 @@ class LocalCollection {
       if (doc.falseClosureReport === undefined) {
         doc.falseClosureReport = { isReported: false, reason: '', status: 'Pending' };
       }
+      if (doc.votes === undefined) doc.votes = 0;
+      if (doc.voters === undefined) doc.voters = [];
     }
     return new LocalDoc(doc, this);
   }

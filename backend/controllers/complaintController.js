@@ -1,7 +1,24 @@
+const mongoose = require('mongoose');
 const { Complaint } = require('../utils/dbAdapter');
 const AppError = require('../utils/AppError');
 const { classifyGrievance } = require('../services/mlClassifier');
 const { recordComplaint, getFrequencyStats, getRecentComplaints } = require('../services/hotspotDetector');
+
+// helper: Haversine distance between two coordinates, in metres
+const distanceMeters = (lat1, lng1, lat2, lng2) => {
+  const R = 6371e3;
+  const toRad = (v) => (v * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+// statuses that count as still "open" (used for duplicate detection)
+const ACTIVE_STATUSES = ['Pending', 'initiated', 'under_review', 'construction_ongoing', 'fixing_issues', 'In Progress', 'Escalated'];
 
 // helper: format a complaint doc for the API response
 const fmt = (c) => ({
@@ -25,9 +42,41 @@ const fmt = (c) => ({
   impactScale: c.impactScale || '',
   contactPreference: c.contactPreference || '',
   resolvedBy: c.resolvedBy || null,
+  resolvedAt: c.resolvedAt || null,
+  resolverName: c.resolverName || '',
+  resolverEmail: c.resolverEmail || '',
   falseClosureReport: c.falseClosureReport || null,
   userId: c.user ? String(c.user) : null,
+  votes: c.votes || 0,
+  voters: Array.isArray(c.voters) ? c.voters.map(String) : [],
+  createdAt: c.createdAt || null,
 });
+
+// Ordered status pipeline — used to enforce forward-only transitions.
+const STATUS_FLOW = ['initiated', 'under_review', 'construction_ongoing', 'fixing_issues', 'resolved'];
+
+/**
+ * Find a complaint by either a full Mongo ObjectId OR the 6-char short id the
+ * frontend displays (last 6 hex chars of _id, uppercased).
+ *
+ * Calling Mongoose's findById() with a non-ObjectId (like "A3872B") throws a
+ * CastError and 500s the request, so we only use findById for real 24-char ids
+ * and fall back to a suffix scan otherwise. Works in both Atlas and local mode.
+ */
+const findComplaintByAnyId = async (id) => {
+  if (!id) return null;
+  let complaint = null;
+  if (String(id).length === 24 && mongoose.Types.ObjectId.isValid(id)) {
+    complaint = await Complaint.findById(id);
+  }
+  if (!complaint) {
+    const all = await Complaint.find();
+    const list = Array.isArray(all) ? all : [];
+    const needle = String(id).toUpperCase();
+    complaint = list.find(c => String(c._id).slice(-6).toUpperCase() === needle) || null;
+  }
+  return complaint;
+};
 
 // ── GET ALL COMPLAINTS ────────────────────────────────────
 exports.getComplaints = async (req, res, next) => {
@@ -85,6 +134,49 @@ exports.getNearbyComplaints = async (req, res, next) => {
   }
 };
 
+// ── VOTE ON A COMPLAINT (upvote / toggle) ─────────────────
+exports.voteComplaint = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const complaint = await findComplaintByAnyId(id);
+    if (!complaint) return next(new AppError('Complaint not found', 404));
+
+    const uid = String(req.user._id);
+
+    // Citizens cannot vote on their own complaint
+    if (String(complaint.user) === uid) {
+      return res.status(400).json({ status: 'fail', message: 'You cannot vote on your own complaint.' });
+    }
+
+    complaint.voters = Array.isArray(complaint.voters) ? complaint.voters.map(String) : [];
+    let voted;
+    if (complaint.voters.includes(uid)) {
+      complaint.voters = complaint.voters.filter(v => v !== uid);
+      voted = false;
+    } else {
+      complaint.voters.push(uid);
+      voted = true;
+    }
+    complaint.votes = complaint.voters.length;
+
+    if (complaint.save) await complaint.save();
+
+    // Broadcast so the author, admin, and CM dashboards update live
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('COMPLAINT_UPDATED', {
+        complaint: fmt(complaint),
+        timestamp: Date.now(),
+      });
+    }
+
+    res.status(200).json({ ...fmt(complaint), voted });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ── GET STATS ─────────────────────────────────────────────
 exports.getStats = async (req, res, next) => {
   try {
@@ -137,6 +229,33 @@ exports.createComplaint = async (req, res, next) => {
 
     if (typeof location === 'string' && location.startsWith('{')) {
       try { location = JSON.parse(location); } catch (e) { /* keep as string */ }
+    }
+
+    // ── Duplicate / spam detection ─────────────────────────
+    // If an OPEN complaint of the same category already exists within 100m,
+    // block the resubmission and point the citizen to the existing one to vote on.
+    if (location && typeof location === 'object' && location.lat && location.lng) {
+      const all = await Complaint.find();
+      const list = Array.isArray(all) ? all : [];
+      const dup = list.find((c) => {
+        if (!c.location || !c.location.lat || !c.location.lng) return false;
+        if (c.category !== category) return false;
+        if (!ACTIVE_STATUSES.includes(c.status)) return false;
+        return distanceMeters(location.lat, location.lng, c.location.lat, c.location.lng) <= 100;
+      });
+
+      if (dup) {
+        const ownComplaint = String(dup.user) === String(req.user._id);
+        return res.status(409).json({
+          status: 'fail',
+          duplicate: true,
+          ownComplaint,
+          message: ownComplaint
+            ? 'You have already reported this issue at this location. You cannot submit the same complaint twice.'
+            : 'This complaint is already registered for this location. Please vote for it instead.',
+          existingComplaint: fmt(dup),
+        });
+      }
     }
 
     const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
@@ -216,28 +335,45 @@ exports.updateComplaintStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status, message, proofImage } = req.body;
 
-    // find by full _id or partial suffix
-    let complaint = await Complaint.findById(id);
-
-    // If not found by full id, try suffix match (local IDs are stored as full hex)
-    if (!complaint) {
-      const all = await Complaint.find();
-      const list = Array.isArray(all) ? all : [];
-      complaint = list.find(c => String(c._id).slice(-6).toUpperCase() === id.toUpperCase());
-    }
-
+    const complaint = await findComplaintByAnyId(id);
     if (!complaint) return next(new AppError('Complaint not found', 404));
 
-    if (status) complaint.status = status;
-    
+    if (status) {
+      // Enforce forward-only progression: a complaint can never move back to an
+      // earlier stage once it has advanced. Unknown/legacy statuses are allowed
+      // through so other flows (e.g. CM reopen) are not blocked.
+      const currentIdx = STATUS_FLOW.indexOf(complaint.status);
+      const targetIdx = STATUS_FLOW.indexOf(status);
+      if (currentIdx !== -1 && targetIdx !== -1 && targetIdx < currentIdx) {
+        return next(new AppError('Status can only move forward, not back to a previous state.', 400));
+      }
+      complaint.status = status;
+    }
+
     // Award point if resolving for the first time
+    let adminUser = null;
     if ((status === 'resolved' || status === 'Resolved' || status === 'fixing_issues') && !complaint.resolvedBy) {
       complaint.resolvedBy = req.user._id;
       const { User } = require('../utils/dbAdapter');
-      const adminUser = await User.findById(req.user._id);
+      adminUser = await User.findById(req.user._id);
       if (adminUser) {
         adminUser.points = (adminUser.points || 0) + 1;
         if (adminUser.save) await adminUser.save();
+      }
+    }
+
+    // Stamp resolution metadata so the "Solved Problems" view can show who/when
+    if (status === 'resolved' || status === 'Resolved') {
+      complaint.resolvedAt = complaint.resolvedAt || new Date().toISOString();
+      let resolver = adminUser;
+      if (!resolver && req.user?._id) {
+        const { User } = require('../utils/dbAdapter');
+        resolver = await User.findById(req.user._id);
+      }
+      resolver = resolver || req.user;
+      if (resolver) {
+        complaint.resolverName = resolver.name || resolver.displayName || complaint.resolverName || '';
+        complaint.resolverEmail = resolver.email || complaint.resolverEmail || '';
       }
     }
 
@@ -262,7 +398,7 @@ exports.updateComplaintStatus = async (req, res, next) => {
       });
     }
 
-    res.status(200).json(complaint);
+    res.status(200).json(fmt(complaint));
   } catch (error) {
     next(error);
   }
@@ -273,13 +409,7 @@ exports.reportFalseClosure = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { reason } = req.body;
-    let complaint = await Complaint.findById(id);
-
-    if (!complaint) {
-      const all = await Complaint.find();
-      const list = Array.isArray(all) ? all : [];
-      complaint = list.find(c => String(c._id).slice(-6).toUpperCase() === id.toUpperCase());
-    }
+    const complaint = await findComplaintByAnyId(id);
     if (!complaint) return next(new AppError('Complaint not found', 404));
 
     complaint.falseClosureReport = {
@@ -300,13 +430,7 @@ exports.handleFalseClosure = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { action } = req.body; // 'Approve' or 'Reject'
-    let complaint = await Complaint.findById(id);
-
-    if (!complaint) {
-      const all = await Complaint.find();
-      const list = Array.isArray(all) ? all : [];
-      complaint = list.find(c => String(c._id).slice(-6).toUpperCase() === id.toUpperCase());
-    }
+    const complaint = await findComplaintByAnyId(id);
     if (!complaint) return next(new AppError('Complaint not found', 404));
 
     if (action === 'Approve') {

@@ -25,6 +25,11 @@ export const complaintService = {
     return api.post('/complaints', complaintData);
   },
 
+  // Citizen: upvote (or toggle vote on) a complaint
+  voteComplaint: async (id) => {
+    return api.post(`/complaints/${id}/vote`);
+  },
+
   // Admin: update status & add message to tracking timeline
   updateComplaintStatus: async (id, payload) => {
     return api.patch(`/complaints/${id}/status`, payload);

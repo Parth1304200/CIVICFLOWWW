@@ -16,6 +16,7 @@
     "dashboard": "npm run dev --workspace=grievance-dashboard",
     "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run dashboard\"",
     "build": "npm run build --workspace=@crm/frontend",
+    "seed": "npm run seed --workspace=@crm/backend",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

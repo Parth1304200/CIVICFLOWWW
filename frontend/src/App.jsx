@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard';
 import { MyComplaints } from './pages/MyComplaints';
 import { SubmitComplaint } from './pages/SubmitComplaint';
 import { HotspotDashboard } from './pages/HotspotDashboard';
+import { SolvedProblems } from './pages/SolvedProblems';
 import { Login } from './pages/Login';
 import { AdminLogin } from './pages/AdminLogin';
 import { CMLogin } from './pages/CMLogin';
@@ -48,6 +49,7 @@ function App() {
               <Route element={<DashboardLayout />}>
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/hotspot-dashboard" element={<HotspotDashboard />} />
+                <Route path="/solved-problems" element={<SolvedProblems />} />
               </Route>
             </Route>
 

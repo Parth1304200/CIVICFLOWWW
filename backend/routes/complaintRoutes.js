@@ -1,5 +1,5 @@
 const express = require('express');
-const { getComplaints, getStats, createComplaint, getMyComplaints, updateComplaintStatus, getHotspots, getNearbyComplaints, reportFalseClosure, handleFalseClosure } = require('../controllers/complaintController');
+const { getComplaints, getStats, createComplaint, getMyComplaints, updateComplaintStatus, getHotspots, getNearbyComplaints, reportFalseClosure, handleFalseClosure, voteComplaint } = require('../controllers/complaintController');
 const auth = require('../middlewares/auth');
 const upload = require('../middlewares/upload');
 
@@ -16,6 +16,7 @@ router.get('/me', getMyComplaints);
 router.get('/nearby', getNearbyComplaints);
 router.post('/', upload.single('image'), createComplaint);
 router.patch('/:id/status', updateComplaintStatus);
+router.post('/:id/vote', voteComplaint);
 router.post('/:id/false-closure', reportFalseClosure);
 router.post('/:id/false-closure/handle', handleFalseClosure);
 
