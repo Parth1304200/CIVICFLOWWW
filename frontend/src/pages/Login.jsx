@@ -4,6 +4,8 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import { Shield, User } from 'lucide-react';
+import { getRedirectResult } from 'firebase/auth';
+import { auth } from '../firebase/config';
 
 export function Login() {
   const navigate = useNavigate();
@@ -32,19 +34,23 @@ export function Login() {
     }
   };
 
+  React.useEffect(() => {
+    getRedirectResult(auth).catch((err) => {
+      if (err.code === 'auth/unauthorized-domain') {
+        setError('Google Sign-In blocked: Domain not authorized. Add your domain in Firebase Console -> Authentication -> Settings -> Authorized Domains.');
+      } else {
+        setError(err.message || 'Google sign-in failed');
+      }
+    });
+  }, []);
+
   const handleGoogle = async () => {
     try {
       localStorage.setItem('role', 'citizen');
       await googleSignIn();
-      navigate('/dashboard');
+      // Code below here won't execute because of the redirect
     } catch (err) {
-      if (err.code === 'auth/unauthorized-domain') {
-        setError('Google Sign-In blocked: Domain not authorized. Add your domain in Firebase Console -> Authentication -> Settings -> Authorized Domains.');
-      } else if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-in popup closed before completing.');
-      } else {
-        setError(err.message || 'Google sign-in failed');
-      }
+      setError(err.message || 'Google sign-in failed');
     }
   };
 

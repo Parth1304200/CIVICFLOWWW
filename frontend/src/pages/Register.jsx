@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, CheckCircle2, Circle, ShieldCheck } from 'lucide-react';
+import { getRedirectResult } from 'firebase/auth';
+import { auth } from '../firebase/config';
 
 // Password strength checker
 function getStrength(password) {
@@ -78,6 +80,16 @@ export function Register() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  useEffect(() => {
+    getRedirectResult(auth).catch((err) => {
+      if (err.code === 'auth/unauthorized-domain') {
+        setError('Google Sign-In blocked: Domain not authorized in Firebase Console.');
+      } else {
+        setError(err.message || 'Google sign-up failed.');
+      }
+    });
+  }, []);
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setError('');
@@ -114,15 +126,9 @@ export function Register() {
     try {
       localStorage.setItem('role', roleTab);
       await googleSignIn();
-      navigate('/dashboard');
+      // Won't run because of redirect
     } catch (err) {
-      if (err.code === 'auth/unauthorized-domain') {
-        setError('Google Sign-In blocked: Domain not authorized in Firebase Console.');
-      } else if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-in popup was closed. Please try again.');
-      } else {
-        setError(err.message || 'Google sign-up failed.');
-      }
+      setError(err.message || 'Google sign-up failed.');
     }
   };
 

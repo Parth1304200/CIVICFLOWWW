@@ -53,30 +53,14 @@ export const login = async (email, password) => {
  */
 export const logout = async () => signOut(auth);
 
+import { signInWithRedirect } from 'firebase/auth';
+
 /**
- * Google Sign-In popup.
- * Returns a UserCredential: { user }
+ * Google Sign-In redirect.
+ * This will navigate away from the page.
  */
 export const googleSignIn = async () => {
-  const credential = await signInWithPopup(auth, provider);
-
-  // Background Firestore sync — non-blocking
-  const userDocRef = doc(db, 'users', credential.user.uid);
-  getDoc(userDocRef)
-    .then(async (snap) => {
-      if (!snap.exists()) {
-        await setDoc(userDocRef, {
-          uid: credential.user.uid,
-          name: credential.user.displayName || 'Google User',
-          email: credential.user.email,
-          role: 'citizen',
-          createdAt: new Date().toISOString(),
-        });
-      }
-    })
-    .catch((err) => console.warn('Background Firestore sync skipped:', err));
-
-  return credential; // { user, ... }
+  await signInWithRedirect(auth, provider);
 };
 
 /**
