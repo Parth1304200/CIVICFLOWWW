@@ -159,7 +159,8 @@ const EMPTY_FORM = {
   occurrenceDate: '',
   urgency: '',
   impactScale: '',
-  contactPreference: ''
+  contactPreference: '',
+  bypassExif: false
 };
 
 export function SubmitComplaint() {
@@ -240,22 +241,26 @@ export function SubmitComplaint() {
 
       try {
         const exifData = await exifr.parse(file);
-        if (!exifData || !exifData.latitude || !exifData.longitude) {
-          setError('The uploaded photo does not contain GPS location data. Please enable location tags on your camera and take a new photo.');
-          setLoading(false);
-          return;
-        }
+        if (!formData.bypassExif) {
+          if (!exifData || !exifData.latitude || !exifData.longitude) {
+            setError('The uploaded photo does not contain GPS location data. Please enable location tags on your camera, or check the box to bypass if your photo has a location watermark.');
+            setLoading(false);
+            return;
+          }
 
-        const distance = getDistance(exifData.latitude, exifData.longitude, formData.location.lat, formData.location.lng);
-        if (distance > 100) {
-          setError(`The geotagged photo's location is ${Math.round(distance)} meters away from the selected address/pin. The photo must be taken within 100 meters of the complaint location.`);
-          setLoading(false);
-          return;
+          const distance = getDistance(exifData.latitude, exifData.longitude, formData.location.lat, formData.location.lng);
+          if (distance > 100) {
+            setError(`The geotagged photo's location is ${Math.round(distance)} meters away from the selected address/pin. The photo must be taken within 100 meters of the complaint location.`);
+            setLoading(false);
+            return;
+          }
         }
       } catch(err) {
-        setError('Failed to extract GPS data from the photo. Make sure it is an original photo from your camera.');
-        setLoading(false);
-        return;
+        if (!formData.bypassExif) {
+          setError('Failed to extract GPS data from the photo. Make sure it is an original photo from your camera, or check the box below to bypass.');
+          setLoading(false);
+          return;
+        }
       }
 
       const data = new FormData();
@@ -645,6 +650,21 @@ export function SubmitComplaint() {
                   >
                     <X className="h-4 w-4" />
                   </button>
+                </div>
+              )}
+              {file && (
+                <div className="mt-3 flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                  <input
+                    type="checkbox"
+                    id="bypassExif"
+                    checked={formData.bypassExif}
+                    onChange={(e) => setFormData(prev => ({ ...prev, bypassExif: e.target.checked }))}
+                    className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded cursor-pointer"
+                  />
+                  <label htmlFor="bypassExif" className="block text-sm text-slate-700 cursor-pointer select-none">
+                    <span className="font-medium text-slate-900 block">Photo missing GPS data?</span>
+                    Check this box to upload anyway if your photo has a visible location stamp or watermark (like GPS Map Camera).
+                  </label>
                 </div>
               )}
             </div>

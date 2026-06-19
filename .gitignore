@@ -12,3 +12,6 @@ frontend/dist/
 
 # Not needed in deployment
 grievance-dashboard/
+
+# Local Netlify folder
+.netlify
