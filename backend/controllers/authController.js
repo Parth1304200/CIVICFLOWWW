@@ -15,7 +15,7 @@ const signToken = (id) =>
  */
 const firebaseSync = async (req, res, next) => {
   try {
-    const { uid, email, name, role } = req.body;
+    const { uid, email, name, role, isProfileSetup, phone, address, gender, dob, photo, surname, nagrikId, points } = req.body;
     if (!uid || !email) {
       return res.status(400).json({ status: 'fail', message: 'Missing Firebase credentials' });
     }
@@ -26,11 +26,34 @@ const firebaseSync = async (req, res, next) => {
       const randomPassword = crypto.randomBytes(16).toString('hex') + 'A1!';
       user = await User.create({
         name: name || 'Citizen',
+        surname: surname || '',
         email,
         password: randomPassword,
         role: role || 'citizen',
         isActive: true,
+        isProfileSetup: isProfileSetup || false,
+        phone: phone || '',
+        address: address || '',
+        gender: gender || '',
+        dob: dob || '',
+        photo: photo || '',
+        nagrikId: nagrikId || '',
+        points: points || 0
       });
+    } else {
+      // If user exists but isProfileSetup is false locally, and true in the payload (Firestore), sync it
+      if (!user.isProfileSetup && isProfileSetup) {
+        user.isProfileSetup = true;
+        if (surname) user.surname = surname;
+        if (phone) user.phone = phone;
+        if (address) user.address = address;
+        if (gender) user.gender = gender;
+        if (dob) user.dob = dob;
+        if (photo) user.photo = photo;
+        if (nagrikId) user.nagrikId = nagrikId;
+        if (points) user.points = points;
+        await user.save();
+      }
     }
 
     const token = signToken(user._id);

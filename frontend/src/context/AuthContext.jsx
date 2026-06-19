@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
 import { auth, db } from '../firebase/config';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import {
   login as authLogin,
   signup as authSignup,
@@ -24,16 +24,44 @@ export const AuthProvider = ({ children }) => {
   // ── Core: Firebase user → backend JWT sync ─────────────────────────────────
   const syncBackend = async (firebaseUser) => {
     try {
+      // Fetch existing data from Firestore just in case this is an old account
+      // that is not synced to MongoDB yet
+      let isProfileSetupFromFirestore = false;
+      let existingData = {};
+      try {
+        if (db) {
+          const docRef = doc(db, 'users', firebaseUser.uid);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            existingData = docSnap.data();
+            isProfileSetupFromFirestore = existingData.isProfileSetup || false;
+          }
+        }
+      } catch (fsErr) {
+        console.warn('Firestore fetch skipped/failed:', fsErr.message);
+      }
+
       const activeRole = localStorage.getItem('role') || 'citizen';
+      const payload = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: existingData.name || firebaseUser.displayName || 'Citizen',
+        role: existingData.role || activeRole,
+        isProfileSetup: isProfileSetupFromFirestore,
+        phone: existingData.phone || '',
+        address: existingData.address || '',
+        gender: existingData.gender || '',
+        dob: existingData.dob || '',
+        photo: existingData.photo || '',
+        surname: existingData.surname || '',
+        nagrikId: existingData.nagrikId || '',
+        points: existingData.points || 0
+      };
+
       const res = await fetch('/api/auth/firebase-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          name: firebaseUser.displayName || 'Citizen',
-          role: activeRole,
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const data = await res.json();
