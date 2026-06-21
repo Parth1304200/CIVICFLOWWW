@@ -41,13 +41,21 @@ export const AuthProvider = ({ children }) => {
         console.warn('Firestore fetch skipped/failed:', fsErr.message);
       }
 
+      const cachedSetup = localStorage.getItem('isProfileSetup') === 'true';
+      const finalIsProfileSetup = isProfileSetupFromFirestore || cachedSetup;
+
+      // Self-heal Firestore if it was missing the flag but we know it's setup
+      if (finalIsProfileSetup && !isProfileSetupFromFirestore && db) {
+        setDoc(doc(db, 'users', firebaseUser.uid), { isProfileSetup: true }, { merge: true }).catch(() => {});
+      }
+
       const activeRole = localStorage.getItem('role') || 'citizen';
       const payload = {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
         name: existingData.name || firebaseUser.displayName || 'Citizen',
         role: existingData.role || activeRole,
-        isProfileSetup: isProfileSetupFromFirestore,
+        isProfileSetup: finalIsProfileSetup,
         phone: existingData.phone || '',
         address: existingData.address || '',
         gender: existingData.gender || '',
@@ -78,16 +86,13 @@ export const AuthProvider = ({ children }) => {
 
   // ── Build merged user object from Firebase + backend data ──────────────────
   const buildUser = (firebaseUser, backendUser) => {
-    // When backendUser is null (sync failed/offline), fall back to the
-    // localStorage-cached isProfileSetup so already-setup citizens don't
-    // get redirected to the setup form on every page load.
+    // When backendUser is null (sync failed/offline) or if the Render ephemeral backend 
+    // wiped our localDb json file, fall back to the localStorage-cached isProfileSetup.
     const cachedSetup = localStorage.getItem('isProfileSetup') === 'true';
-    const isProfileSetup = backendUser
-      ? backendUser.isProfileSetup === true
-      : cachedSetup;
+    const isProfileSetup = (backendUser && backendUser.isProfileSetup === true) || cachedSetup;
 
     // Persist a successful setup state so it survives backend-offline sessions
-    if (backendUser?.isProfileSetup === true) {
+    if (isProfileSetup) {
       localStorage.setItem('isProfileSetup', 'true');
     }
 
