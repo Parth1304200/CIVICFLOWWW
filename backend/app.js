@@ -78,6 +78,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/complaints', complaintRoutes);
 
+// ── Root endpoint ────────────────────────────────────────
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'CivicFlow API is running successfully.'
+  });
+});
+
 // ── 404 handler for undefined routes ─────────────────────
 app.all('/{*path}', (req, _res, next) => {
   next(new AppError(`Cannot find ${req.method} ${req.originalUrl} on this server.`, 404));
