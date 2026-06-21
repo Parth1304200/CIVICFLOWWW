@@ -30,11 +30,14 @@ app.use(
       // Allow requests with no origin (e.g. curl, mobile apps)
       if (!origin) return callback(null, true);
       if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-      // Allow any localhost / 127.0.0.1 origin in dev — Vite may pick 5173, 5174, 5175, …
+      // Allow any localhost / 127.0.0.1 origin in dev
       if (/^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin)) return callback(null, true);
+      // Allow any Netlify or Render domain dynamically
+      if (origin.endsWith('.netlify.app') || origin.endsWith('.onrender.com')) return callback(null, true);
+      
       callback(new Error(`CORS policy: origin ${origin} not allowed`));
     },
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,
   })
 );
